@@ -51,4 +51,5 @@ def login_user(email: str, password: str, db: Session = Depends(get_db)):
     user = db.query(user_model.User).filter(user_model.User.email == email).first()
     if not user or not pwd_context.verify(password, user.hashed_password):
         raise HTTPException(status_code=400, detail="Invalid credentials")
-    return {"message": "Login successful"}
+    return {"token": "mock-token-123", "message": "Login successful"}
+

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, Image, Dimensions, Alert, ActivityIndicator } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors } from '../constants/colors';
 import { login } from '../api/auth';
 
@@ -13,6 +14,7 @@ export default function LoginScreen({ navigation }: any) {
     setLoading(true);
     try {
       const res = await login(email, password);
+      await AsyncStorage.setItem('authToken', res.token);
       Alert.alert('Success', res.message, [
         {
           text: 'OK',
