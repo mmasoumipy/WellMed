@@ -15,6 +15,7 @@ export default function LoginScreen({ navigation }: any) {
     try {
       const res = await login(email, password);
       await AsyncStorage.setItem('authToken', res.token);
+      await AsyncStorage.setItem('userEmail', email);
       Alert.alert('Success', res.message, [
         {
           text: 'OK',

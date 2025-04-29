@@ -1,8 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Image, Dimensions, Button } from 'react-native';
 import { colors } from '../constants/colors';
 
-export default function HomeScreen() {
+export default function HomeScreen({ navigation }: any) {
   return (
     <View style={styles.container}>
       <View style={styles.logoContainer}>
@@ -10,6 +10,8 @@ export default function HomeScreen() {
       </View>
       <Text style={styles.title}>Hi, welcome to WellMed!</Text>
       <Text style={styles.subtitle}>Your burnout prevention journey starts here 🌱</Text>
+      <Button title="Go to Profile" onPress={() => navigation.navigate('Profile')} color={colors.secondary} />
+
     </View>
   );
 }
