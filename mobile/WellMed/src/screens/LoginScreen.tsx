@@ -13,7 +13,13 @@ export default function LoginScreen({ navigation }: any) {
     setLoading(true);
     try {
       const res = await login(email, password);
-      Alert.alert('Success', res.message);
+      Alert.alert('Success', res.message, [
+        {
+          text: 'OK',
+          onPress: () => navigation.navigate('Home'),
+        },
+      ]
+      );
     } catch (err: any) {
       Alert.alert('Error', err.response?.data?.detail || 'Login failed');
     } finally {
