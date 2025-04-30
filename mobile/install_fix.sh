@@ -89,7 +89,27 @@ touch src/api/auth.ts
 npm install axios --save
 
 
-# Add the LoginScreen, RegisterScreen, and HomeScreen components
+# Add the LoginScreen, RegisterScreen, and HomeScreen
+touch src/screens/LoginScreen.tsx
+touch src/screens/RegisterScreen.tsx
+touch src/screens/HomeScreen.tsx
+
 # Then, to keep the login token in the app, we need to install AsyncStorage
 npm install @react-native-async-storage/async-storage
 npx pod-install ios
+
+
+# Add Profile Screen
+mkdir -p src/screens
+touch src/screens/ProfileScreen.tsx
+
+
+# For tab navigator
+npm install @react-navigation/bottom-tabs react-native-screens react-native-safe-area-context
+npx pod-install ios
+
+
+# Install icons
+npm install react-native-vector-icons
+npx pod-install ios
+npm i --save-dev @types/react-native-vector-icons
