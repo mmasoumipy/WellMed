@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Button, Image, Dimensions, Alert } from 'react-native';
+import { View, Text, StyleSheet, Button, Image, Dimensions, Alert, ScrollView } from 'react-native';
 import { colors } from '../constants/colors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MoodSelector from '../components/MoodSelector';
+import MoodHistory from '../components/MoodHistory';
+
 
 
 export default function ProfileScreen({ navigation }: any) {
@@ -17,7 +19,7 @@ export default function ProfileScreen({ navigation }: any) {
   }, []);
 
   return (
-    <View style={styles.container}>
+    <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.logoContainer}>
             <Image source={require('../../assets/logo_half.png')} style={styles.logo} />
         </View>
@@ -41,6 +43,8 @@ export default function ProfileScreen({ navigation }: any) {
                 }}
             />
 
+            <MoodHistory />
+
         </View>
 
 
@@ -55,7 +59,7 @@ export default function ProfileScreen({ navigation }: any) {
         <View style={styles.buttonContainer}>
             <Button title="Back to Home" onPress={() => navigation.navigate('Home')} color={colors.primary} />
         </View>
-    </View>
+    </ScrollView>
   );
 }
 

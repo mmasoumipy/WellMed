@@ -113,3 +113,11 @@ npx pod-install ios
 npm install react-native-vector-icons
 npx pod-install ios
 npm i --save-dev @types/react-native-vector-icons
+
+
+# For mood entry and mood history, they are two components in src/components named MoodEntry.tsx and MoodHistory.tsx
+
+
+# For showing the mood history, we need to install react-native-chart-kit
+npm install react-native-chart-kit react-native-svg
+npx pod-install ios
