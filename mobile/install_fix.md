@@ -121,3 +121,15 @@ npm i --save-dev @types/react-native-vector-icons
 # For showing the mood history, we need to install react-native-chart-kit
 npm install react-native-chart-kit react-native-svg
 npx pod-install ios
+
+
+# For make different tabs in ProfileScreen
+npm install @react-navigation/material-top-tabs react-native-tab-view react-native-pager-view
+npx pod-install ios
+# Then, we will add in that page
+```javascript
+import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
+import { NavigationContainer } from '@react-navigation/native';
+```
+
+
