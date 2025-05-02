@@ -10,12 +10,17 @@ export default function ProfileAssessmentTab({ navigation }: any) {
       <ScrollView style={styles.card}>
         {/* <DailyCheckIn /> */}
         {/* TODO: Add MBI Assessment component here */}
+        <Button
+            title="Start MBI Assessment"
+            onPress={() => navigation.navigate('MBIAssessment')}
+            color={colors.secondary}
+        />
 
         {/* MicroAssessment */}
         <Button
             title="Start Micro-Assessment"
             onPress={() => navigation.navigate('MicroAssessment')}
-            color="#4A90E2"
+            color={colors.secondary}
         />
       </ScrollView>
     </View>

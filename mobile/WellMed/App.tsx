@@ -7,6 +7,7 @@ import RegisterScreen from './src/screens/RegisterScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import MicroAssessmentScreen from './src/screens/MicroAssessmentScreen';
+import MBIAssessmentScreen from './src/screens/MBIAssessmentScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors } from './src/constants/colors';
@@ -67,6 +68,7 @@ export default function App() {
           <HomeStack.Navigator>
             <HomeStack.Screen name="ProfileMain" component={ProfileScreen} options={{ headerShown: false }} />
             <HomeStack.Screen name="MicroAssessment" component={MicroAssessmentScreen} options={{ headerShown: false }} />
+            <HomeStack.Screen name="MBIAssessment" component={MBIAssessmentScreen} options={{ headerShown: false }} />
             <HomeStack.Screen name="Settings" component={SettingsScreen} options={{ headerShown: false }} />
           </HomeStack.Navigator>
         );
