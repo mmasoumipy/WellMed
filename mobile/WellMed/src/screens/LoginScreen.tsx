@@ -4,6 +4,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors } from '../constants/colors';
 import { login } from '../api/auth';
 
+import { scheduleMonthlyMBIReminder } from '../utils/notifications';
+
 export default function LoginScreen({ navigation }: any) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -19,7 +21,10 @@ export default function LoginScreen({ navigation }: any) {
       Alert.alert('Success', res.message, [
         {
           text: 'OK',
-          onPress: () => navigation.navigate('Home'),
+          onPress: () => {
+            scheduleMonthlyMBIReminder();
+            navigation.navigate('Home');
+          }
         },
       ]
       );

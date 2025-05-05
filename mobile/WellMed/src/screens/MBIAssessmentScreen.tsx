@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { colors } from '../constants/colors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import PushNotification from 'react-native-push-notification';
+import { scheduleMonthlyMBIReminder } from '../utils/notifications';
+
 
 const questions = [
   { id: 1, text: 'I feel emotionally drained from my work.' },
@@ -47,9 +50,22 @@ export default function MBIAssessmentScreen({ navigation }: any) {
   };
 
   const handleSubmit = () => {
-    if (Object.keys(answers).length !== 22) {
-      Alert.alert('Incomplete', 'Please answer all questions before submitting.');
-      return;
+    try {
+      // Validate answers
+      if (Object.keys(answers).length == 22) {
+        // Alert.alert('Success', 'All questions answered.');
+
+        // Proceed with submission
+        // Schedule the monthly reminder **after successful save**
+        scheduleMonthlyMBIReminder();
+        Alert.alert(
+            'MBI Submitted',
+            'Your assessment has been saved and a monthly reminder is scheduled!',
+            [{ text: 'OK', onPress: () => navigation.goBack() }]
+          );
+      }
+    } catch (error) {
+        Alert.alert('Error', 'Failed to validate answers.');
     }
 
     setIsLoading(true);

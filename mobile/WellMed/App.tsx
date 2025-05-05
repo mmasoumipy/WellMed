@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
+import PushNotification from 'react-native-push-notification';
+import PushNotificationIOS from '@react-native-community/push-notification-ios';
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
 import HomeScreen from './src/screens/HomeScreen';
@@ -15,6 +18,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import Icon from 'react-native-ionicons';
 
 
+
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -22,6 +26,35 @@ export default function App() {
   const [initialRoute, setInitialRoute] = useState('Login');
   
   useEffect(() => {
+    // Create notification channel 
+    // PushNotification.createChannel(
+    //   {
+    //     channelId: 'mbi-reminder-channel',
+    //     channelName: 'MBI Reminders',
+    //     channelDescription: 'Monthly reminders for MBI assessments',
+    //     importance: 4,
+    //     vibrate: true,
+    //   },
+    //   (created) => console.log(`createChannel returned '${created}'`)
+    // );
+
+    // // Optional: Configure notifications (required for iOS)
+    // PushNotification.configure({
+    //   onNotification: function (notification) {
+    //     console.log('NOTIFICATION:', notification);
+    //   },
+    //   requestPermissions: Platform.OS === 'ios',
+    // });
+
+    PushNotification.configure({
+      onNotification: function (notification) {
+        console.log('Notification:', notification);
+        notification.finish(PushNotificationIOS.FetchResult.NoData);
+      },
+      requestPermissions: true,
+    });
+
+
     const checkToken = async () => {
       const token = await AsyncStorage.getItem('authToken');
       if (token) {

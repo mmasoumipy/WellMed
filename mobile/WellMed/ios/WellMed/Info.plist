@@ -48,5 +48,7 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
+	<key>NSUserNotificationUsageDescription</key>
+	<string>We need to send you notifications to keep you updated.</string>
 </dict>
 </plist>

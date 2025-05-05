@@ -132,4 +132,17 @@ import { createMaterialTopTabNavigator } from '@react-navigation/material-top-ta
 import { NavigationContainer } from '@react-navigation/native';
 ```
 
+# For monthly notification for MBI, we need
+```shell
+npm install react-native-push-notification
+npx pod-install ios
+```
+# Then, find file "info.plist" under ios/WeellMed(projectname) and add below line to it.
+<key>NSUserNotificationUsageDescription</key>
+<string>We need to send you notifications to keep you updated.</string>
 
+# I saw some errors, so I used below code
+```shell
+npm install @react-native-community/push-notification-ios react-native-push-notification
+npx pod-install ios
+```

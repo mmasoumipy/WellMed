@@ -48,7 +48,7 @@ export default function ProfileScreen({ navigation }: any) {
           </Tab.Navigator>
         </View>
   
-        {email ? (
+        {/* {email ? (
           <>
             <Text style={styles.info}>Email: {email}</Text>
             <Text style={styles.subtitle}>This is your burnout prevention app 🌿</Text>
@@ -58,7 +58,7 @@ export default function ProfileScreen({ navigation }: any) {
         )}
         <View style={styles.buttonContainer}>
           <Button title="Back to Home" onPress={() => navigation.navigate('Home')} color={colors.primary} />
-        </View>
+        </View> */}
       </View>
     );
   }
