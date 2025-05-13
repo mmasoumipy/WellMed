@@ -1,10 +1,10 @@
 from sqlalchemy import Column, String, Integer, Float, DateTime, Boolean, ForeignKey, Text, Date, Time
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship, declarative_base
+from sqlalchemy.orm import relationship
 import uuid
 from datetime import datetime
 
-Base = declarative_base()
+from app.database import Base
 
 class HealthData(Base):
     __tablename__ = 'health_data'

@@ -1,10 +1,10 @@
 from sqlalchemy import Column, String, Integer, Float, DateTime, Boolean, ForeignKey, Text, Date, Time
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship, declarative_base
+from sqlalchemy.orm import relationship
 import uuid
 from datetime import datetime
 
-Base = declarative_base()
+from app.database import Base
 
 class MoodEntry(Base):
     __tablename__ = 'mood_entries'
@@ -14,4 +14,4 @@ class MoodEntry(Base):
     reason = Column(Text)
     timestamp = Column(DateTime, default=datetime.utcnow)
 
-    user = relationship("User", back_populates="moods")
+    user = relationship("User", back_populates="mood_entries")
