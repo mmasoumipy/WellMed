@@ -4,19 +4,22 @@ services:
   backend:
     build: .
     ports:
-      - "8000:8000"
+      - "8080:8080"
     depends_on:
       - db
     environment:
-      - DATABASE_URL=postgresql+psycopg2://postgres:postgres@db/postgres
+      DATABASE_URL: postgresql://myuser:mypassword@db:5432/wellmed_db
 
   db:
     image: postgres:15
+    container_name: postgres_db_wellmed
     restart: always
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: postgres
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: wellmed_db
+    ports:
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
