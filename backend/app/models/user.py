@@ -23,8 +23,8 @@ class User(Base):
     birthday = Column(Date, nullable=True)
     specialty = Column(String, nullable=True)
     password_hash = Column(String, nullable=False)
-    created_at = Column(String, nullable=False)
-    updated_at = Column(String, nullable=True)
+    created_at = Column(String, nullable=False, default=datetime.utcnow)
+    updated_at = Column(String, nullable=True, nullable=True)
 
     # Relationships
     mood_entries = relationship("MoodEntry", back_populates="user")
