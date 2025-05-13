@@ -1,7 +1,12 @@
 from fastapi import FastAPI
-from . import models
-from .database import engine
-from .routes import users, moods, micro_assessments, mbi_assessments, journals, chatbot, goals, health
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+# from .models import models
+# import models
+from app import models
+from app.database import engine
+from app.routes import users, moods, micro_assessments, mbi_assessments, journal, chatbot, goals
 
 models.Base.metadata.create_all(bind=engine)
 app = FastAPI()
@@ -10,10 +15,10 @@ app.include_router(users.router, prefix="/users", tags=["Users"])
 app.include_router(moods.router, prefix="/moods", tags=["Moods"])
 app.include_router(micro_assessments.router, prefix="/micro", tags=["Micro Assessments"])
 app.include_router(mbi_assessments.router, prefix="/mbi", tags=["MBI Assessments"])
-app.include_router(journals.router, prefix="/journals", tags=["Journals"])
+app.include_router(journal.router, prefix="/journals", tags=["Journals"])
 app.include_router(chatbot.router, prefix="/chatbot", tags=["Chatbot"])
 app.include_router(goals.router, prefix="/goals", tags=["Goals"])
-app.include_router(health.router, prefix="/health", tags=["Health"])
+# app.include_router(health.router, prefix="/health", tags=["Health"])
 
 @app.get("/")
 def root():
