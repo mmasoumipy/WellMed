@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 from app import schemas, models
 from datetime import datetime
+from uuid import UUID
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -42,7 +43,7 @@ def create_mood(db: Session, mood: schemas.MoodCreate):
     db.refresh(db_mood)
     return db_mood
 
-def get_user_moods(db: Session, user_id: int):
+def get_user_moods(db: Session, user_id: UUID):
     return db.query(models.MoodEntry).filter(models.MoodEntry.user_id == user_id).all()
 
 # MICRO ASSESSMENTS
@@ -53,10 +54,10 @@ def create_micro_assessment(db: Session, micro: schemas.MicroAssessmentCreate):
     db.refresh(db_micro)
     return db_micro
 
-def get_all_micro_assessment(db: Session, user_id: int):
+def get_all_micro_assessment(db: Session, user_id: UUID):
     return db.query(models.MicroAssessment).filter(models.MicroAssessment.user_id == user_id).all()
 
-def get_micro_assessment(db: Session, assessment_id: int):
+def get_micro_assessment(db: Session, assessment_id: UUID):
     return db.query(models.MicroAssessment).filter(
         models.MicroAssessment.id == assessment_id
     ).first()

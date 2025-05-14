@@ -55,11 +55,12 @@ class MoodOut(MoodBase):
 
 # MICRO ASSESSMENT
 class MicroAssessmentBase(BaseModel):
-    user_id: int
-    fatigue: int
-    stress: int
-    satisfaction: int
-    sleep: int
+    user_id: UUID
+    fatigue_level: int
+    stress_level: int
+    work_satisfaction: int
+    sleep_quality: int
+    support_feeling: int
     comments: Optional[str]
     submitted_at: datetime
 
@@ -67,8 +68,7 @@ class MicroAssessmentCreate(MicroAssessmentBase):
     pass
 
 class MicroAssessmentOut(MicroAssessmentBase):
-    id: int
-    timestamp: datetime
+    id: UUID
 
     class Config:
         orm_mode = True
