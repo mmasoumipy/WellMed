@@ -36,7 +36,7 @@ class UserResponse(UserBase):
 
 # MOOD
 class MoodBase(BaseModel):
-    user_id: int
+    user_id: UUID
     mood: str
     reason: Optional[str]
     timestamp: datetime
@@ -48,7 +48,7 @@ class MoodResponse(MoodBase):
     pass
 
 class MoodOut(MoodBase):
-    id: int
+    id: UUID
 
     class Config:
         orm_mode = True
