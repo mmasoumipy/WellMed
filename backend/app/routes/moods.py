@@ -1,9 +1,9 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
-from database import get_db
-from schemas import MoodCreate, MoodResponse
-from models import MoodEntry
-from crud import create_mood, get_user_moods
+from app.database import get_db
+from app.schemas import MoodCreate, MoodResponse
+from app.models import MoodEntry
+from app.crud import create_mood, get_user_moods
 
 router = APIRouter()
 

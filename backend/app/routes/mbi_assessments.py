@@ -1,8 +1,8 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
-from database import get_db
-from schemas import MBIAssessmentCreate, MBIAssessmentResponse
-from crud import create_mbi_assessment, get_mbi_assessments
+from app.database import get_db
+from app.schemas import MBIAssessmentCreate, MBIAssessmentResponse
+from app.crud import create_mbi_assessment, get_mbi_assessments
 
 router = APIRouter()
 
