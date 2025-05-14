@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 from app import schemas, models
+from datetime import datetime
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -12,7 +13,8 @@ def create_user(db: Session, user: schemas.UserCreate):
         name=user.name,
         birthday=user.birthday,
         specialty=user.specialty,
-        password_hash=hashed_password
+        password_hash=hashed_password,
+        created_at=datetime.utcnow(),
     )
     db.add(db_user)
     db.commit()
@@ -27,6 +29,7 @@ def update_user(db: Session, user_id: int, updates: schemas.UserUpdate):
     for var, value in vars(updates).items():
         if value is not None:
             setattr(user, var, value)
+    user.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(user)
     return user

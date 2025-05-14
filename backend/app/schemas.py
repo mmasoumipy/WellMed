@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import date, datetime
+from uuid import UUID
 
 # USER
 class UserBase(BaseModel):
@@ -24,17 +25,14 @@ class UserUpdate(BaseModel):
     updated_at: datetime
 
 class UserResponse(UserBase):
-    id: int
-    updated_at: datetime
+    id: UUID
+    email: str
+    name: str
+    birthday: date | None = None
+    specialty: str | None = None
 
     class Config:
-        orm_mode = True
-
-class UserOut(UserBase):
-    id: int
-
-    class Config:
-        orm_mode = True
+        from_attributes = True
 
 # MOOD
 class MoodBase(BaseModel):
