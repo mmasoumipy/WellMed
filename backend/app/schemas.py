@@ -106,27 +106,15 @@ class MBIAssessmentOut(BaseModel):
         from_attributes = True
 
 # MBI ANSWER
-class MBIAnswerBase(BaseModel):
-    user_id: int
-    question_id: int
-    answer_value: int
-    mbi_id: int
 
-class MBIAnswerCreate(MBIAnswerBase):
-    pass
-
-class MBIAnswerOut(MBIAnswerBase):
-    id: int
-    timestamp: datetime
-
-    class Config:
-        orm_mode = True
 
 
 # JOURNAL ENTRY
 class JournalEntryBase(BaseModel):
-    user_id: int
+    user_id: UUID
     content: str
+    audio_path: Optional[str]
+    created_at: datetime
 
 class JournalEntryCreate(JournalEntryBase):
     pass
@@ -135,8 +123,8 @@ class JournalEntryResponse(JournalEntryBase):
     pass
 
 class JournalEntryOut(JournalEntryBase):
-    id: int
-    timestamp: datetime
+    id: UUID
+    analysis: str
 
     class Config:
         orm_mode = True
