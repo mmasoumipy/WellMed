@@ -82,7 +82,7 @@ def create_mbi_assessment_with_answers(db: Session, user_id: UUID, answers_data:
         personal_accomplishment=personal_accomplishment
     )
     db.add(db_assessment)
-    db.flush()  # Get the ID without committing
+    db.flush()
     
     # Create answers linked to the assessment
     for answer_data in answers_data:
@@ -105,17 +105,23 @@ def get_mbi_assessment_by_id(db: Session, assessment_id: UUID):
 
 
 # JOURNAL
-def create_journal_entry(db: Session, entry: schemas.JournalEntryCreate):
-    db_entry = models.JournalEntry(**entry.dict())
+def create_journal_entry(db: Session, entry: schemas.JournalEntryCreate, analysis: str):
+    # Convert pydantic model to dict
+    entry_dict = entry.dict()
+    # Add analysis field
+    entry_dict["analysis"] = analysis
+    
+    # Create the database entry
+    db_entry = models.JournalEntry(**entry_dict)
     db.add(db_entry)
     db.commit()
     db.refresh(db_entry)
     return db_entry
 
-def get_all_user_journals(db: Session, user_id: int):
+def get_all_user_journals(db: Session, user_id: UUID):
     return db.query(models.JournalEntry).filter(models.JournalEntry.user_id == user_id).all()
 
-def get_user_journal(db: Session, entry_id: int):
+def get_user_journal(db: Session, entry_id: UUID):
     return db.query(models.JournalEntry).filter(models.JournalEntry.id == entry_id).first()
 
 

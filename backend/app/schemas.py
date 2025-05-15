@@ -112,22 +112,19 @@ class MBIAssessmentOut(BaseModel):
 # JOURNAL ENTRY
 class JournalEntryBase(BaseModel):
     user_id: UUID
-    content: str
-    audio_path: Optional[str]
-    created_at: datetime
+    text_content: str
+    audio_path: Optional[str] = None
+    created_at: Optional[datetime] = None
 
 class JournalEntryCreate(JournalEntryBase):
     pass
 
-class JournalEntryResponse(JournalEntryBase):
-    pass
-
-class JournalEntryOut(JournalEntryBase):
+class JournalEntryResponseOut(JournalEntryBase):
     id: UUID
     analysis: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # GOAL
 class GoalBase(BaseModel):

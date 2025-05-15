@@ -7,3 +7,4 @@ alembic
 pydantic
 passlib
 pydantic
+python-multipart
