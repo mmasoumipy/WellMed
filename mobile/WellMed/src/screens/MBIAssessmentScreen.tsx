@@ -49,58 +49,115 @@ export default function MBIAssessmentScreen({ navigation }: any) {
     setAnswers((prev) => ({ ...prev, [qId]: value }));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     try {
       // Validate answers
-      if (Object.keys(answers).length == 22) {
-        // Alert.alert('Success', 'All questions answered.');
-
-        // Proceed with submission
-        // Schedule the monthly reminder **after successful save**
-        scheduleMonthlyMBIReminder();
-        Alert.alert(
-            'MBI Submitted',
-            'Your assessment has been saved and a monthly reminder is scheduled!',
-            [{ text: 'OK', onPress: () => navigation.goBack() }]
-          );
+      if (Object.keys(answers).length !== 22) {
+        Alert.alert('Please answer all questions');
+        return;
       }
+  
+      setIsLoading(true);
+  
+      // Format answers for API
+      const formattedAnswers = Object.entries(answers).map(([questionId, value]) => ({
+        question_id: parseInt(questionId),
+        answer_value: value
+      }));
+  
+      // Get user ID from your auth system
+      const userId = await AsyncStorage.getItem('userId'); // Or however you store the user ID
+  
+      // Prepare payload
+      const payload = {
+        user_id: userId,
+        answers: formattedAnswers
+      };
+  
+      // Send to API
+      const response = await fetch('YOUR_API_URL/mbi/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${await AsyncStorage.getItem('userToken')}` // If you use JWT auth
+        },
+        body: JSON.stringify(payload)
+      });
+  
+      if (!response.ok) {
+        throw new Error('Failed to submit assessment');
+      }
+  
+      const result = await response.json();
+  
+      // Schedule the monthly reminder
+      scheduleMonthlyMBIReminder();
+      
+      Alert.alert(
+        'MBI Results',
+        `Emotional Exhaustion: ${result.emotional_exhaustion}\nDepersonalization: ${result.depersonalization}\nPersonal Accomplishment: ${result.personal_accomplishment}\n\nYour results have been saved!`,
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
+      );
     } catch (error) {
-        Alert.alert('Error', 'Failed to validate answers.');
+      Alert.alert('Error', 'Failed to submit assessment. Please try again.');
+      console.error(error);
+    } finally {
+      setIsLoading(false);
     }
-
-    setIsLoading(true);
-
-    // Calculate subscale scores
-    const EE = [1,2,3,6,8,13,14,16,20].reduce((sum, id) => sum + answers[id], 0);
-    const DP = [5,10,11,15,22].reduce((sum, id) => sum + answers[id], 0);
-    const PA = [4,7,9,12,17,18,19,21].reduce((sum, id) => sum + answers[id], 0);
-
-    setTimeout(async () => {
-        const result = {
-          date: new Date().toISOString(),
-          EE,
-          DP,
-          PA,
-        };
-      
-        try {
-          const oldData = await AsyncStorage.getItem('mbiResults');
-          const parsed = oldData ? JSON.parse(oldData) : [];
-          const updated = [result, ...parsed].slice(0, 12); // Keep last 12
-          await AsyncStorage.setItem('mbiResults', JSON.stringify(updated));
-          Alert.alert(
-            'MBI Results',
-            `Emotional Exhaustion: ${EE}\nDepersonalization: ${DP}\nPersonal Accomplishment: ${PA}\n\nYour results have been saved!`,
-            [{ text: 'OK', onPress: () => navigation.goBack() }]
-          );
-        } catch (e) {
-          Alert.alert('Error', 'Failed to save MBI results.');
-        }
-      
-        setIsLoading(false);
-      }, 1000);
-      
   };
+  
+  // const handleSubmit = () => {
+  //   try {
+  //     // Validate answers
+  //     if (Object.keys(answers).length == 22) {
+  //       // Alert.alert('Success', 'All questions answered.');
+
+  //       // Proceed with submission
+  //       // Schedule the monthly reminder **after successful save**
+  //       scheduleMonthlyMBIReminder();
+  //       Alert.alert(
+  //           'MBI Submitted',
+  //           'Your assessment has been saved and a monthly reminder is scheduled!',
+  //           [{ text: 'OK', onPress: () => navigation.goBack() }]
+  //         );
+  //     }
+  //   } catch (error) {
+  //       Alert.alert('Error', 'Failed to validate answers.');
+  //   }
+
+  //   setIsLoading(true);
+
+  //   // Calculate subscale scores
+  //   const EE = [1,2,3,6,8,13,14,16,20].reduce((sum, id) => sum + answers[id], 0);
+  //   const DP = [5,10,11,15,22].reduce((sum, id) => sum + answers[id], 0);
+  //   const PA = [4,7,9,12,17,18,19,21].reduce((sum, id) => sum + answers[id], 0);
+
+  //   setTimeout(async () => {
+  //       const result = {
+  //         date: new Date().toISOString(),
+  //         EE,
+  //         DP,
+  //         PA,
+  //       };
+      
+  //       try {
+  //         const oldData = await AsyncStorage.getItem('mbiResults');
+  //         const parsed = oldData ? JSON.parse(oldData) : [];
+  //         const updated = [result, ...parsed].slice(0, 12); // Keep last 12
+  //         await AsyncStorage.setItem('mbiResults', JSON.stringify(updated));
+  //         Alert.alert(
+  //           'MBI Results',
+  //           `Emotional Exhaustion: ${EE}\nDepersonalization: ${DP}\nPersonal Accomplishment: ${PA}\n\nYour results have been saved!`,
+  //           [{ text: 'OK', onPress: () => navigation.goBack() }]
+  //         );
+  //       } catch (e) {
+  //         Alert.alert('Error', 'Failed to save MBI results.');
+  //       }
+      
+  //       setIsLoading(false);
+  //     }, 1000);
+      
+  // };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>

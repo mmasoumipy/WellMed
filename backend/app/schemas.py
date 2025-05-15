@@ -74,28 +74,36 @@ class MicroAssessmentOut(MicroAssessmentBase):
         orm_mode = True
 
 # MBI ASSESSMENT
-class MBIAssessmentBase(BaseModel):
-    user_id: int
+class MBIAnswerCreate(BaseModel):
+    question_id: int
+    answer_value: int
+
+class MBIAssessmentCreate(BaseModel):
+    user_id: UUID
+    answers: List[MBIAnswerCreate]
+
+class MBIAnswerOut(BaseModel):
+    id: UUID
+    question_id: int
+    answer_value: int
+    submitted_at: datetime
+    
+    class Config:
+        orm_mode = True
+        from_attributes = True
+
+class MBIAssessmentOut(BaseModel):
+    id: UUID
+    user_id: UUID
     emotional_exhaustion: int
     depersonalization: int
     personal_accomplishment: int
+    submitted_at: datetime
+    answers: List[MBIAnswerOut] = []
     
-
-class MBIAssessmentCreate(MBIAssessmentBase):
-    pass
-
-class MBIAssessmentResponse(MBIAssessmentBase):
-    pass
-    
-class MBIAssessmentResponseCreate(MBIAssessmentBase):
-    pass
-
-class MBIAssessmentOut(MBIAssessmentBase):
-    id: int
-    timestamp: datetime
-
     class Config:
         orm_mode = True
+        from_attributes = True
 
 # MBI ANSWER
 class MBIAnswerBase(BaseModel):

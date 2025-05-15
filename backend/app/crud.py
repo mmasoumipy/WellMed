@@ -3,6 +3,7 @@ from passlib.context import CryptContext
 from app import schemas, models
 from datetime import datetime
 from uuid import UUID
+from typing import List
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -63,22 +64,44 @@ def get_micro_assessment(db: Session, assessment_id: UUID):
     ).first()
 
 # MBI ASSESSMENTS
-def create_mbi_assessment(db: Session, mbi: schemas.MBIAssessmentCreate):
-    db_mbi = models.MBIAssessment(**mbi.dict())
-    db.add(db_mbi)
+def create_mbi_assessment_with_answers(db: Session, user_id: UUID, answers_data: List[dict]):
+    # Calculate subscale scores
+    ee_questions = {1, 2, 3, 6, 8, 13, 14, 16, 20}
+    dp_questions = {5, 10, 11, 15, 22}
+    pa_questions = {4, 7, 9, 12, 17, 18, 19, 21}
+    
+    emotional_exhaustion = sum(ans["answer_value"] for ans in answers_data if ans["question_id"] in ee_questions)
+    depersonalization = sum(ans["answer_value"] for ans in answers_data if ans["question_id"] in dp_questions)
+    personal_accomplishment = sum(ans["answer_value"] for ans in answers_data if ans["question_id"] in pa_questions)
+    
+    # Create assessment
+    db_assessment = models.MBIAssessment(
+        user_id=user_id,
+        emotional_exhaustion=emotional_exhaustion,
+        depersonalization=depersonalization,
+        personal_accomplishment=personal_accomplishment
+    )
+    db.add(db_assessment)
+    db.flush()  # Get the ID without committing
+    
+    # Create answers linked to the assessment
+    for answer_data in answers_data:
+        db_answer = models.MBIAnswer(
+            mbi_id=db_assessment.id,
+            question_id=answer_data["question_id"],
+            answer_value=answer_data["answer_value"]
+        )
+        db.add(db_answer)
+    
     db.commit()
-    db.refresh(db_mbi)
-    return db_mbi
+    db.refresh(db_assessment)
+    return db_assessment
 
-def create_mbi_answer(db: Session, response: schemas.MBIAssessmentResponseCreate):
-    db_response = models.MBIAnswer(**response.dict())
-    db.add(db_response)
-    db.commit()
-    db.refresh(db_response)
-    return db_response
+def get_mbi_assessments_by_user(db: Session, user_id: UUID):
+    return db.query(models.MBIAssessment).filter(models.MBIAssessment.user_id == user_id).order_by(models.MBIAssessment.submitted_at.desc()).all()
 
-def get_mbi_assessments(db: Session, user_id: int):
-    return db.query(models.MBIAssessment).filter(models.MBIAssessment.user_id == user_id).all()
+def get_mbi_assessment_by_id(db: Session, assessment_id: UUID):
+    return db.query(models.MBIAssessment).filter(models.MBIAssessment.id == assessment_id).first()
 
 
 # JOURNAL
