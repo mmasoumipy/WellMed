@@ -2,6 +2,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 from datetime import date, datetime
 from uuid import UUID
+from enum import Enum
 
 # USER
 class UserBase(BaseModel):
@@ -127,10 +128,18 @@ class JournalEntryResponseOut(JournalEntryBase):
         from_attributes = True
 
 # GOAL
+class GoalTypeEnum(str, Enum):
+    PERSONAL = "Personal"
+    PROFESSIONAL = "Professional"
+    HEALTH = "Health"
+    COMMUNICATION = "Communication"
+    OTHER = "Other"
+
 class GoalBase(BaseModel):
-    user_id: int
+    user_id: UUID
     title: str
     description: Optional[str]
+    goal_type: GoalTypeEnum | None
 
 class GoalCreate(GoalBase):
     pass
@@ -139,14 +148,15 @@ class GoalResponse(GoalBase):
     pass
 
 class GoalOut(GoalBase):
-    id: int
+    id: UUID
 
     class Config:
         orm_mode = True
 
+
 # CHATBOT MESSAGE
 class ChatMessageBase(BaseModel):
-    user_id: int
+    user_id: UUID
     message: str
     response: str
 
@@ -157,7 +167,7 @@ class ChatMessageResponse(ChatMessageBase):
     pass
 
 class ChatMessageOut(ChatMessageBase):
-    id: int
+    id: UUID
     timestamp: datetime
 
     class Config:

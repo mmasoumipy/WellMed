@@ -16,7 +16,7 @@ router = APIRouter()
 async def add_journal_entry(
     user_id: uuid.UUID = Form(...),
     text_content: Optional[str] = Form(None),
-    audio_file: Union[UploadFile, str, None] = File(default=None),
+    audio_file: Union[UploadFile, str, None] = File(default=None), # Union is used to allow for both UploadFile and str types
     db: Session = Depends(get_db)
 ):
     print(f"Received user_id: {user_id}")

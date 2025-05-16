@@ -133,8 +133,18 @@ def create_goal(db: Session, goal: schemas.GoalCreate):
     db.refresh(db_goal)
     return db_goal
 
-def get_user_goals(db: Session, user_id: int):
-    return db.query(models.Goal).filter(models.Goal.user_id == user_id).all()
+def get_user_goals(db: Session, user_id: UUID):
+    goals = db.query(models.Goal).filter(models.Goal.user_id == user_id).all()
+    # for goal in goals:
+    #     if goal.goal_type:
+    #         goal.goal_type = str(goal.goal_type)
+    return goals
+
+def get_goal_by_id(db: Session, goal_id: UUID):
+    goal = db.query(models.Goal).filter(models.Goal.id == goal_id).first()
+    # if goal and goal.goal_type:
+    #     goal.goal_type = str(goal.goal_type)
+    return goal
 
 # CHATBOT
 def create_chat_message(db: Session, message: schemas.ChatMessageCreate):
