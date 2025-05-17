@@ -146,6 +146,66 @@ def get_goal_by_id(db: Session, goal_id: UUID):
     #     goal.goal_type = str(goal.goal_type)
     return goal
 
+# Conversation - Carely
+def create_conversation(db: Session, user_id: UUID):
+    db_conversation = models.Conversation(user_id=user_id)
+    db.add(db_conversation)
+    db.commit()
+    db.refresh(db_conversation)
+    return db_conversation
+
+def get_user_conversations(db: Session, user_id: UUID):
+    return db.query(models.Conversation).filter(models.Conversation.user_id == user_id).order_by(models.Conversation.updated_at.desc()).all()
+
+def get_conversation(db: Session, conversation_id: UUID):
+    return db.query(models.Conversation).filter(models.Conversation.id == conversation_id).first()
+
+def update_conversation(db: Session, conversation_id: UUID, conversation_data: schemas.ConversationUpdate):
+    db_conversation = get_conversation(db, conversation_id)
+    if db_conversation:
+        update_data = conversation_data.dict(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(db_conversation, key, value)
+        db_conversation.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(db_conversation)
+    return db_conversation
+
+def delete_conversation(db: Session, conversation_id: UUID):
+    db_conversation = get_conversation(db, conversation_id)
+    if db_conversation:
+        db.delete(db_conversation)
+        db.commit()
+        return True
+    return False
+
+# Message
+def create_message(db: Session, message: schemas.MessageCreate):
+    db_message = models.Message(**message.dict())
+    db.add(db_message)
+    db.commit()
+    db.refresh(db_message)
+    
+    db_conversation = get_conversation(db, message.conversation_id)
+    if db_conversation:
+        db_conversation.updated_at = datetime.utcnow()
+        db.commit()
+    
+    return db_message
+
+def get_conversation_messages(db: Session, conversation_id: UUID):
+    return db.query(models.Message).filter(models.Message.conversation_id == conversation_id).order_by(models.Message.created_at).all()
+
+def get_conversation_with_messages(db: Session, conversation_id: UUID):
+    conversation = get_conversation(db, conversation_id)
+    if conversation:
+        messages = get_conversation_messages(db, conversation_id)
+        # Don't return a dictionary, just attach the messages to the conversation object
+        setattr(conversation, "messages", messages)
+        return conversation
+    return None
+
+
 # CHATBOT
 def create_chat_message(db: Session, message: schemas.ChatMessageCreate):
     db_message = models.ChatbotConversation(**message.dict())
@@ -161,4 +221,4 @@ def get_chatbot_conversation(db: Session, user_id: int, conversation_id: int):
     return db.query(models.ChatbotConversation).filter(
         models.ChatbotConversation.user_id == user_id,
         models.ChatbotConversation.id == conversation_id
-    ).first()
+    ).first() 

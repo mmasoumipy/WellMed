@@ -153,6 +153,47 @@ class GoalOut(GoalBase):
     class Config:
         orm_mode = True
 
+# Conversation schemas
+class ConversationBase(BaseModel):
+    title: Optional[str] = "New Conversation"
+
+class ConversationCreate(ConversationBase):
+    pass
+
+class ConversationUpdate(ConversationBase):
+    title: Optional[str] = None
+
+class Conversation(ConversationBase):
+    id: UUID
+    user_id: UUID
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        orm_mode = True
+
+# Message schemas
+class MessageBase(BaseModel):
+    content: str
+    role: str  # 'user' or 'assistant'
+
+class MessageCreate(MessageBase):
+    conversation_id: UUID
+
+class Message(MessageBase):
+    id: UUID
+    conversation_id: UUID
+    created_at: datetime
+
+    class Config:
+        orm_mode = True
+
+class ConversationWithMessages(Conversation):
+    messages: List[Message]
+
+    class Config:
+        orm_mode = True
+        
 
 # CHATBOT MESSAGE
 class ChatMessageBase(BaseModel):

@@ -7,7 +7,9 @@ from .mbi_assessments import MBIAssessment
 from .mbi_answers import MBIAnswer
 from .journal_enteries import JournalEntry
 from .goals import Goal
-from .chatbot_conversations import ChatbotConversation
+# from .chatbot_conversations import ChatbotConversation
+from .conversations import Conversation
+from .messages import Message
 from .reminders import Reminder
 from .health_data import HealthData
 from app.database import Base
@@ -22,7 +24,9 @@ __all__ = [
     "MBIAnswer",
     "JournalEntry",
     "Goal",
-    "ChatbotConversation",
+    # "ChatbotConversation",
     "Reminder",
     "HealthData"
+    "Conversation",
+    "Message"
 ]

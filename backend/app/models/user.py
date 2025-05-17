@@ -9,9 +9,11 @@ from app.models.mood_enteries import MoodEntry
 from app.models.mbi_assessments import MBIAssessment
 from app.models.journal_enteries import JournalEntry
 from app.models.micro_assessments import MicroAssessment
-from app.models.chatbot_conversations import ChatbotConversation
+# from app.models.chatbot_conversations import ChatbotConversation
 from app.models.goals import Goal
 from app.models.reminders import Reminder
+from app.models.health_data import HealthData
+from app.models.conversations import Conversation
 
 
 class User(Base):
@@ -31,7 +33,8 @@ class User(Base):
     mbi_assessments = relationship("MBIAssessment", back_populates="user")
     journal_entries = relationship("JournalEntry", back_populates="user")
     micro_assessments = relationship("MicroAssessment", back_populates="user")
-    chatbot_conversations = relationship("ChatbotConversation", back_populates="user")
+    # chatbot_conversations = relationship("ChatbotConversation", back_populates="user")
     goals = relationship("Goal", back_populates="user")
     reminders = relationship("Reminder", back_populates="user")
     health_data = relationship("HealthData", back_populates="user")
+    conversations = relationship("Conversation", back_populates="user")

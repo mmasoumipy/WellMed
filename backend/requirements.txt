@@ -8,3 +8,4 @@ pydantic
 passlib
 pydantic
 python-multipart
+httpx

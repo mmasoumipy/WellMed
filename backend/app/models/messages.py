@@ -7,14 +7,12 @@ from datetime import datetime
 from app.database import Base
 
 
-class ChatbotConversation(Base):
-    __tablename__ = 'chatbot_conversations'
+class Message(Base):
+    __tablename__ = 'messages'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id'))
-    # role = Column(String(50), nullable=False)  # 'user' or 'assistant'
-    # content = Column(Text, nullable=False)
-    # prompt = Column(Text)
-    # response = Column(Text)
+    conversation_id = Column(UUID(as_uuid=True), ForeignKey('conversations.id'))
+    content = Column(Text)
+    role = Column(String)  # 'user' or 'assistant'
     created_at = Column(DateTime, default=datetime.utcnow)
-
-    user = relationship("User", back_populates="chatbot_conversations")
+    
+    conversation = relationship("Conversation", back_populates="messages")
