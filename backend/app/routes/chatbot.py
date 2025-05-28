@@ -1,6 +1,8 @@
 # routes/chat.py
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from sqlalchemy.orm import Session
+from app.models import User
+from app.utils.token import get_current_user
 from uuid import UUID
 from typing import List
 from app.database import get_db
@@ -28,11 +30,19 @@ router = APIRouter()
 
 # Conversation routes
 @router.post("/conversations/", response_model=Conversation)
-def create_new_conversation(user_id: UUID, db: Session = Depends(get_db)):
+def create_new_conversation(user_id: UUID, 
+                            db: Session = Depends(get_db), 
+                            current_user: User = Depends(get_current_user)):
+    if user_id is None or current_user.id is None or user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="You can only create conversations for yourself")
     return create_conversation(db=db, user_id=user_id)
 
 @router.get("/conversations/user/{user_id}", response_model=List[Conversation])
-def get_user_chat_history(user_id: UUID, db: Session = Depends(get_db)):
+def get_user_chat_history(user_id: UUID,
+                          db: Session = Depends(get_db), 
+                          current_user: User = Depends(get_current_user)):
+    if user_id is None or current_user.id is None or user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="You can only access your own conversations")
     return get_user_conversations(db, user_id=user_id)
 
 @router.get("/conversations/{conversation_id}", response_model=ConversationWithMessages)

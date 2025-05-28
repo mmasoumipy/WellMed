@@ -1,5 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
+from app.models import User
+from app.utils.token import get_current_user
 from typing import List
 from uuid import UUID
 from app.database import get_db
@@ -9,8 +11,13 @@ from app.crud import create_mbi_assessment_with_answers, get_mbi_assessments_by_
 router = APIRouter()
 
 @router.post("/", response_model=MBIAssessmentOut)
-def submit_mbi_assessment(assessment: MBIAssessmentCreate, db: Session = Depends(get_db)):
+def submit_mbi_assessment(assessment: MBIAssessmentCreate, 
+                          db: Session = Depends(get_db),
+                          current_user: User = Depends(get_current_user)):
     """Submit a complete MBI assessment with all 22 answers"""
+
+    if assessment.user_id is None or current_user.id is None or assessment.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="You can only submit assessments for yourself")
     # Validate that we have exactly 22 questions
     if len(assessment.answers) != 22:
         raise HTTPException(status_code=400, detail="MBI assessment requires exactly 22 questions")

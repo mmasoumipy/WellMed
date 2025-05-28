@@ -1,11 +1,14 @@
 from fastapi import APIRouter, HTTPException, Depends
+from fastapi import Form
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
+from app.utils.token import create_access_token
 from app.database import get_db
 from app.schemas import UserCreate, UserUpdate, UserResponse, UserLogin
 from app.models import User
 from app.crud import create_user, get_user_by_email, update_user
 import logging
+
 
 router = APIRouter()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -32,18 +35,27 @@ def update_user_info(user_id: int, user_update: UserUpdate, db: Session = Depend
     return user
 
 @router.post("/login")
-def login(user: UserLogin, db: Session = Depends(get_db)):
-    logging.info(f"Login attempt for email: {user.email}")
-    db_user = get_user_by_email(db, user.email)
+def login(
+    username: str = Form(...), 
+    password: str = Form(...), 
+    db: Session = Depends(get_db)
+):
+    logging.info(f"Login attempt for email: {username}")
+    db_user = get_user_by_email(db, username)
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    if not pwd_context.verify(user.password, db_user.password_hash):
+    if not pwd_context.verify(password, db_user.password_hash):
         raise HTTPException(status_code=401, detail="Incorrect password")
 
+    access_token = create_access_token(data={"sub": str(db_user.id)})
+
     return {
-        "message": "Login successful",
-        "user_id": db_user.id,
-        "email": db_user.email,
-        "name": db_user.name
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": {
+            "id": db_user.id,
+            "email": db_user.email,
+            "name": db_user.name
+        }
     }

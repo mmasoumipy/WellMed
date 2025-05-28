@@ -1,5 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form
 from sqlalchemy.orm import Session
+from app.models import User
+from app.utils.token import get_current_user
 import uuid
 from datetime import datetime
 import os
@@ -17,10 +19,14 @@ async def add_journal_entry(
     user_id: uuid.UUID = Form(...),
     text_content: Optional[str] = Form(None),
     audio_file: Union[UploadFile, str, None] = File(default=None), # Union is used to allow for both UploadFile and str types
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    print(f"Received user_id: {user_id}")
     """Create a new journal entry from text or audio"""
+    
+    if user_id is None or current_user.id is None or user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="You can only create journal entries for yourself")
+    print(f"Received user_id: {user_id}")
 
     if isinstance(audio_file, str) and audio_file == "":
         audio_file = None

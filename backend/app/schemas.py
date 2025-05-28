@@ -69,7 +69,7 @@ class MicroAssessmentCreate(MicroAssessmentBase):
     pass
 
 class MicroAssessmentOut(MicroAssessmentBase):
-    id: UUID
+    id: Optional[UUID] = None
 
     class Config:
         orm_mode = True
@@ -193,7 +193,7 @@ class ConversationWithMessages(Conversation):
 
     class Config:
         orm_mode = True
-        
+
 
 # CHATBOT MESSAGE
 class ChatMessageBase(BaseModel):
