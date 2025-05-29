@@ -1,11 +1,16 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, Dimensions, Button, Alert } from 'react-native';
 import { colors } from '../constants/colors';
+import { PUBLIC_API_BASE_URL } from '@env';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MoodSelector from '../components/MoodSelector';
+import api from '../api/api';
+console.log(PUBLIC_API_BASE_URL);
+
 
 export default function HomeScreen({ navigation }: any) {
   return (
+    
     <View style={styles.container}>
       {/* <View style={styles.logoContainer}>
         <Image source={require('../../assets/logo.png')} style={styles.logo} />
@@ -15,17 +20,26 @@ export default function HomeScreen({ navigation }: any) {
           <Text style={styles.cardSubtitle}>Track your mood daily 🌞</Text>
 
           <MoodSelector
-                onSelect={async (mood) => {
-                    try {
-                    const old = await AsyncStorage.getItem('moodEntries');
-                    const moods = old ? JSON.parse(old) : [];
-                    const updated = [mood, ...moods].slice(0, 10); // keep last 10
-                    await AsyncStorage.setItem('moodEntries', JSON.stringify(updated));
-                    Alert.alert(`Mood "${mood.value}" recorded!`);
-                    } catch (e) {
-                    Alert.alert('Failed to save mood.');
-                    }
-                }}
+            onSelect={async (mood) => {
+              try {
+                const token = await AsyncStorage.getItem('authToken');
+                const userId = await AsyncStorage.getItem('userId');
+
+                const response = await api.post('/moods/', {
+                  user_id: userId,
+                  mood: mood.value,
+                  reason: mood.note || '', // renamed note to reason
+                  timestamp: new Date().toISOString(),
+                });
+
+                const savedMood = response.data;
+                Alert.alert(`Mood "${savedMood.mood}" recorded!`);
+              } catch (e) {
+                console.error('Error saving mood:', e);
+                Alert.alert('Error', 'Failed to save mood.');
+              }
+            }}
+
             />
       </View>
       <Text style={styles.title}>Hi, welcome to WellMed!</Text>

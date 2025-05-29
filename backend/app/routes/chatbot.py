@@ -1,4 +1,3 @@
-# routes/chat.py
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from sqlalchemy.orm import Session
 from app.models import User

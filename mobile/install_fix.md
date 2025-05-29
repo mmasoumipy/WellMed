@@ -155,3 +155,7 @@ npm install @react-native-async-storage/async-storage
 npx pod-install ios
 ```
 
+# For .env, use:
+```shell
+npm install react-native-dotenv
+```
