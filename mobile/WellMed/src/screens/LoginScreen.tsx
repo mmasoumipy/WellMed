@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, Image, Dimensions, Alert, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { saveToken } from "../utils/auth";
 import { colors } from '../constants/colors';
 import { login } from '../api/auth';
 
@@ -14,26 +15,40 @@ export default function LoginScreen({ navigation }: any) {
 
   const handleLogin = async () => {
     setLoading(true);
+    console.log('Attempting to login with email:', email);
+  
     try {
       const res = await login(email, password);
-      await AsyncStorage.setItem('authToken', res.token);
-      await AsyncStorage.setItem('userEmail', email);
-      Alert.alert('Success', res.message, [
+      console.log('Login response:', res);
+  
+      if (!res || !res.access_token) {
+        throw new Error('Invalid response: missing access_token');
+      }
+  
+      await AsyncStorage.setItem('authToken', res.access_token);
+      await AsyncStorage.setItem('userEmail', res.user.email);
+      await AsyncStorage.setItem('userId', res.user.id);
+  
+      console.log('Login successful, token saved:', res.access_token);
+  
+      Alert.alert('Success', 'Login successful', [
         {
           text: 'OK',
           onPress: () => {
             scheduleMonthlyMBIReminder();
             navigation.navigate('Home');
-          }
+          },
         },
-      ]
-      );
+      ]);
     } catch (err: any) {
-      Alert.alert('Error', err.response?.data?.detail || 'Login failed');
+      console.error('Login failed:', err.message || err);
+      Alert.alert('Error', err.message || 'Login failed');
     } finally {
-      setLoading(false); 
+      setLoading(false);
     }
   };
+  
+  
 
   return (
     <View style={styles.container}>

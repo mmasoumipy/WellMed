@@ -146,3 +146,12 @@ npx pod-install ios
 npm install @react-native-community/push-notification-ios react-native-push-notification
 npx pod-install ios
 ```
+
+
+# After developing backend, make mobile/WellMedsrc/api.ts
+# Then, install SecureStore to save the token securely
+```shell
+npm install @react-native-async-storage/async-storage
+npx pod-install ios
+```
+
