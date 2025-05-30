@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, Dimensions, Button, Alert } from 'react-native';
+import { View, Text, StyleSheet, Image, Dimensions, Button, Alert, TouchableOpacity } from 'react-native';
 import { colors } from '../constants/colors';
 import { PUBLIC_API_BASE_URL } from '@env';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -42,6 +42,42 @@ export default function HomeScreen({ navigation }: any) {
 
             />
       </View>
+
+        <View style={styles.card}>
+            <Text style={styles.cardTitle}>Quick Activities</Text>
+            <Text style={styles.cardSubtitle}>Boost your mood with these quick activities!</Text>
+            <View  style={styles.activityRow}>
+                <TouchableOpacity
+                  style={styles.activityButton}
+                  onPress={() => navigation.navigate('BoxBreathing')}>
+                  <Text style={styles.activityText}>Start Box Breathing</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.activityButton}
+                  onPress={() => navigation.navigate('Stretch')}>
+                  <Text style={styles.activityText}>Start Stretching</Text>
+                </TouchableOpacity>
+            </View>
+          </View>
+{/* 
+      <View style={{ marginTop: 10 }}>
+        <Text style={styles.cardTitle}>Quick Activities</Text>
+        <View style={{ marginVertical: 10 }}>
+
+          <Button
+            title="🧘 Start Box Breathing"
+            onPress={() => navigation.navigate('BoxBreathing')}
+            color={colors.accent}
+          />
+          <View style={{ height: 10 }} />
+          <Button
+            title="🤸 Stretch Session"
+            onPress={() => navigation.navigate('Stretch')}
+            color={colors.accent}
+          />
+        </View>
+      </View> */}
+
       <Text style={styles.title}>Hi, welcome to WellMed!</Text>
       <Text style={styles.subtitle}>Your burnout prevention journey starts here 🌱</Text>
       <Button title="Go to Profile" onPress={() => navigation.navigate('Profile')} color={colors.secondary} />
@@ -102,6 +138,33 @@ const styles = StyleSheet.create({
   cardSubtitle: {
     fontSize: 14,
     color: colors.textSecondary,
+  },
+  moodRow: { 
+    flexDirection: 'row', 
+    flexWrap: 'wrap', 
+    justifyContent: 'center', 
+  },
+  activityRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
+  activityButton: {
+    padding: 10,
+    margin: 5,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.secondary,
+    width: '45%',
+    height: 50,
+  },
+  activityText: {
+    color: colors.textWhite,
+    fontSize: 16,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
   
 });
