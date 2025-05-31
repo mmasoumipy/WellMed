@@ -4,24 +4,35 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import MoodSelector from '../components/MoodSelector';
 import MoodHistory from '../components/MoodHistory';
 import { colors } from '../constants/colors';
+import api from '../api/api';
 
 export default function ProfileMoodTab() {
   return (
     <View style={styles.container}>
             <ScrollView style={styles.card}>
                 <MoodSelector
-                onSelect={async (mood) => {
-                try {
-                    const old = await AsyncStorage.getItem('moodEntries');
-                    const moods = old ? JSON.parse(old) : [];
-                    const updated = [mood, ...moods].slice(0, 10); // keep last 10
-                    await AsyncStorage.setItem('moodEntries', JSON.stringify(updated));
-                    Alert.alert(`Mood "${mood.value}" recorded!`);
-                } catch (e) {
-                    Alert.alert('Failed to save mood.');
-                }
-                }}
-            />
+                    onSelect={async (mood) => {
+                        try {
+                        const token = await AsyncStorage.getItem('authToken');
+                        const userId = await AsyncStorage.getItem('userId');
+                        console.log("Submitting mood with token:", token);
+                        console.log("User ID:", userId, "Mood:", mood.value);
+                    
+                        const response = await api.post('/moods/', {
+                            user_id: userId,
+                            mood: mood.value,
+                            reason: mood.note || '',
+                            timestamp: new Date().toISOString(),
+                        });
+                    
+                        Alert.alert(`Mood "${response.data.mood}" recorded!`);
+                        } catch (e: any) {
+                        console.error('Error saving mood:', e);
+                        Alert.alert('Error', `Failed to save mood: ${e?.response?.data?.detail || e.message}`);
+                        }
+                    }}
+  
+                />
             <MoodHistory />
         </ScrollView>
     </View>

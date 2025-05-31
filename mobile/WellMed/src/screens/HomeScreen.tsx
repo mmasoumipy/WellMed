@@ -28,7 +28,7 @@ export default function HomeScreen({ navigation }: any) {
                 const response = await api.post('/moods/', {
                   user_id: userId,
                   mood: mood.value,
-                  reason: mood.note || '', // renamed note to reason
+                  reason: mood.note || '',
                   timestamp: new Date().toISOString(),
                 });
 
