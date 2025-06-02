@@ -62,7 +62,7 @@ class MicroAssessmentBase(BaseModel):
     work_satisfaction: int
     sleep_quality: int
     support_feeling: int
-    comments: Optional[str]
+    comments: Optional[str] = None
     submitted_at: datetime
 
 class MicroAssessmentCreate(MicroAssessmentBase):

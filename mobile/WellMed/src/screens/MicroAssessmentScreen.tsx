@@ -1,129 +1,158 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator, Button } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, Button, StyleSheet, Alert, TouchableOpacity, ScrollView } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import api from '../api/api';
 import { colors } from '../constants/colors';
 
-export default function MicroAssessmentScreen(navigation: any) {
-  const [isLoading, setIsLoading] = useState(false);
+type FormField = 'fatigue_level' | 'stress_level' | 'work_satisfaction' | 'sleep_quality' | 'support_feeling';
 
-  const questions = [
-    { key: 'fatigueLevel', label: 'Fatigue Level', options: ['Low', 'Moderate', 'High'] },
-    { key: 'stressLevel', label: 'Stress Level', options: ['Low', 'Moderate', 'High'] },
-    { key: 'workSatisfaction', label: 'Work Satisfaction', options: ['Low', 'Moderate', 'High'] },
-    { key: 'sleepQuality', label: 'Sleep Quality', options: ['Poor', 'Average', 'Great'] },
-    { key: 'supportFeeling', label: 'Feeling Supported', options: ['Not at all', 'Somewhat', 'Very'] },
-  ];
+type FormState = {
+  [key in FormField]: number | null;
+};
 
-  const [answers, setAnswers] = useState<Record<string, string>>({});
 
-  const handleSelect = (questionKey: string, option: string) => {
-    setAnswers((prev) => ({ ...prev, [questionKey]: option }));
+const questions: { field: FormField; label: string }[] = [
+  { field: 'fatigue_level', label: 'Fatigue Level' },
+  { field: 'stress_level', label: 'Stress Level' },
+  { field: 'work_satisfaction', label: 'Work Satisfaction' },
+  { field: 'sleep_quality', label: 'Sleep Quality' },
+  { field: 'support_feeling', label: 'Feeling Supported' },
+];
+
+
+export default function MicroAssessmentScreen() {
+  const [token, setToken] = useState('');
+  const [userId, setUserId] = useState('');
+  const [form, setForm] = useState<FormState>({
+    fatigue_level: null,
+    stress_level: null,
+    work_satisfaction: null,
+    sleep_quality: null,
+    support_feeling: null,
+  });
+  const now = new Date().toISOString();
+  
+
+  useEffect(() => {
+    const loadAuth = async () => {
+      const token = await AsyncStorage.getItem('authToken');
+      const userId = await AsyncStorage.getItem('userId');
+      if (token && userId) {
+        setToken(token);
+        setUserId(userId);
+      }
+    };
+    loadAuth();
+  }, []);
+
+  const selectValue = (field: string, value: number) => {
+    setForm({ ...form, [field]: value });
   };
 
+  const isComplete = Object.values(form).every((v) => v !== null);
+
   const handleSubmit = async () => {
-    setIsLoading(true);
+    if (!isComplete) {
+      Alert.alert('Incomplete', 'Please answer all questions.');
+      return;
+    }
+    console.log("Submitting mood with token:", token);
+    console.log("User ID:", userId, "Form State:", form);
+
     try {
-      // TODO: Replace with actual API call
-      Alert.alert('Submitted', 'Your micro-assessment has been saved.');
-    } catch (error) {
-      Alert.alert('Error', 'Failed to submit assessment.');
-    } finally {
-      setIsLoading(false);
+      const res = await api.post(
+        `${process.env.PUBLIC_API_BASE_URL}/micro/`,
+        {
+          user_id: userId,
+          ...form,
+          comment: '',
+          submitted_at: now,
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      Alert.alert('Success', 'Assessment submitted!');
+      setForm({
+        fatigue_level: null,
+        stress_level: null,
+        work_satisfaction: null,
+        sleep_quality: null,
+        support_feeling: null,
+      });
+    } catch (err) {
+      console.error('Submit error:', err);
+      Alert.alert('Error', 'Failed to submit assessment. Lets try again later.');
     }
   };
 
   return (
-    <View style={styles.container}>
-            <ScrollView style={styles.card}>
-                <Text style={styles.cardTitle}>Micro-Assessment</Text>
-                {questions.map((q) => (
-                    <View key={q.key} style={styles.questionBlock}>
-                    <Text style={styles.questionLabel}>{q.label}</Text>
-                    <View style={styles.optionsRow}>
-                        {q.options.map((option) => (
-                        <TouchableOpacity
-                            key={option}
-                            style={[
-                            styles.optionButton,
-                            answers[q.key] === option && styles.optionButtonSelected,
-                            ]}
-                            onPress={() => handleSelect(q.key, option)}
-                        >
-                            <Text style={styles.optionText}>{option}</Text>
-                        </TouchableOpacity>
-                        ))}
-                    </View>
-                    </View>
-                ))}
+    <ScrollView contentContainerStyle={styles.container}>
+      <Text style={styles.title}>Micro Assessment</Text>
 
-                <TouchableOpacity
-                    style={styles.submitButton}
-                    onPress={handleSubmit}
-                    disabled={isLoading}
-                >
-                    {isLoading ? (
-                    <ActivityIndicator color="#fff" />
-                    ) : (
-                    <Text style={styles.submitButtonText}>Submit Assessment</Text>
-                    )}
-                </TouchableOpacity>
-            </ScrollView>
-    </View>
+      {questions.map((q) => (
+        <View key={q.field} style={styles.questionBlock}>
+          <Text style={styles.question}>{q.label}</Text>
+          <View style={styles.optionsRow}>
+            {[0, 1, 2, 3, 4, 5].map((val) => (
+              <TouchableOpacity
+                key={val}
+                style={[
+                  styles.option,
+                  form[q.field] === val && styles.selectedOption,
+                ]}
+                onPress={() => selectValue(q.field, val)}
+              >
+                <Text style={styles.optionText}>{val}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      ))}
+
+      <Button title="Submit Assessment" onPress={handleSubmit} color={colors.primary} />
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-      container: {   
-          flex: 1,
-          backgroundColor: colors.backgroundPrimary,
-          alignItems: 'center',
-        },
-      card: {
-          width: '90%',
-          padding: 20,
-          marginTop: 80,
-          marginBottom: 20,
-          backgroundColor: colors.cardBackground,
-          borderRadius: 10,
-          shadowColor: '#000',
-          shadowOpacity: 0.1,
-          shadowRadius: 6,
-          shadowOffset: { width: 0, height: 2 },
-          elevation: 3,
-      },
-      cardTitle: {
-          fontSize: 20,
-          fontWeight: 'bold',
-          marginBottom: 5,
-          color: colors.textPrimary,
-      },
-      cardSubtitle: {
-          fontSize: 14,
-          color: colors.textSecondary,
-      },
-    title: { fontSize: 24, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
-    questionBlock: { marginBottom: 20 },
-    questionLabel: {           
-        fontSize: 14,
-        color: colors.textSecondary,
-    },
-    optionsRow: { flexDirection: 'row', flexWrap: 'wrap' },
-    optionButton: {
-        padding: 10,
-        margin: 5,
-        backgroundColor: '#B8CDD9',
-        borderRadius: 8,
-    },
-    optionButtonSelected: {
-        backgroundColor: '#4A90E2',
-    },
-    optionText: { color: '#fff', fontWeight: '600' },
-    submitButton: {
-        backgroundColor: '#4A90E2',
-        padding: 15,
-        borderRadius: 8,
-        alignItems: 'center',
-        marginTop: 20,
-    },
-    submitButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-    
+  container: {
+    padding: 20,
+    paddingTop: 40,
+    backgroundColor: colors.backgroundPrimary,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: colors.textPrimary,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  questionBlock: {
+    marginBottom: 25,
+  },
+  question: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: colors.textSecondary,
+    marginBottom: 10,
+  },
+  optionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  option: {
+    backgroundColor: '#ccc',
+    padding: 10,
+    borderRadius: 6,
+    width: 40,
+    alignItems: 'center',
+  },
+  selectedOption: {
+    backgroundColor: colors.accent,
+  },
+  optionText: {
+    fontWeight: 'bold',
+    color: '#000',
+  },
 });
