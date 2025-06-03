@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { colors } from '../constants/colors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PushNotification from 'react-native-push-notification';
 import { scheduleMonthlyMBIReminder } from '../utils/notifications';
+import { PUBLIC_API_BASE_URL } from '@env';
+import api  from '../api/api';
 
 
 const questions = [
@@ -44,10 +46,28 @@ const options = [
 export default function MBIAssessmentScreen({ navigation }: any) {
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [token, setToken] = useState('');
+  const [userId, setUserId] = useState('');
+  const now = new Date().toISOString();
+  
+
+  useEffect(() => {
+    const loadAuth = async () => {
+      const token = await AsyncStorage.getItem('authToken');
+      const userId = await AsyncStorage.getItem('userId');
+      if (token && userId) {
+        setToken(token);
+        setUserId(userId);
+      }
+    };
+    loadAuth();
+  }, []);
 
   const handleSelect = (qId: number, value: number) => {
     setAnswers((prev) => ({ ...prev, [qId]: value }));
   };
+
+  
 
   const handleSubmit = async () => {
     try {
@@ -66,7 +86,7 @@ export default function MBIAssessmentScreen({ navigation }: any) {
       }));
   
       // Get user ID from your auth system
-      const userId = await AsyncStorage.getItem('userId'); // Or however you store the user ID
+      const userId = await AsyncStorage.getItem('userId');
   
       // Prepare payload
       const payload = {
@@ -75,15 +95,14 @@ export default function MBIAssessmentScreen({ navigation }: any) {
       };
   
       // Send to API
-      const response = await fetch('YOUR_API_URL/mbi/', {
+      const response = await fetch(`${PUBLIC_API_BASE_URL}/mbi/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${await AsyncStorage.getItem('userToken')}` // If you use JWT auth
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
-  
       if (!response.ok) {
         throw new Error('Failed to submit assessment');
       }
