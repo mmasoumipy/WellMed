@@ -1,9 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, Dimensions, Button, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Image, Dimensions, Button, Alert, TouchableOpacity, ScrollView } from 'react-native';
 import { colors } from '../constants/colors';
 import { PUBLIC_API_BASE_URL } from '@env';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MoodSelector from '../components/MoodSelector';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import HealthDataDisplay from '../components/HealthDataDisplay';
 import api from '../api/api';
 console.log(PUBLIC_API_BASE_URL);
 
@@ -11,7 +13,7 @@ console.log(PUBLIC_API_BASE_URL);
 export default function HomeScreen({ navigation }: any) {
   return (
     
-    <View style={styles.container}>
+    <ScrollView style={styles.container}>
       {/* <View style={styles.logoContainer}>
         <Image source={require('../../assets/logo.png')} style={styles.logo} />
       </View> */}
@@ -59,30 +61,42 @@ export default function HomeScreen({ navigation }: any) {
                 </TouchableOpacity>
             </View>
           </View>
-{/* 
-      <View style={{ marginTop: 10 }}>
-        <Text style={styles.cardTitle}>Quick Activities</Text>
-        <View style={{ marginVertical: 10 }}>
 
-          <Button
-            title="🧘 Start Box Breathing"
-            onPress={() => navigation.navigate('BoxBreathing')}
-            color={colors.accent}
-          />
-          <View style={{ height: 10 }} />
-          <Button
-            title="🤸 Stretch Session"
-            onPress={() => navigation.navigate('Stretch')}
-            color={colors.accent}
-          />
-        </View>
-      </View> */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Wellness Journey</Text>
+            <Text style={styles.cardSubtitle}>Track your progress and build healthy habits</Text>
+            <View style={styles.activityRow}>
+              <TouchableOpacity
+                style={styles.activityButton}
+                onPress={() => navigation.navigate('WellnessHistory')}>
+                <Ionicons name="analytics-outline" size={20} color={colors.textWhite} />
+                <Text style={styles.activityText}>View History</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.activityButton, { backgroundColor: colors.success }]}
+                onPress={() => {
+                  // Quick stats or achievements could go here
+                  Alert.alert('Coming Soon', 'Achievements and streaks feature coming soon!');
+                }}>
+                <Ionicons name="trophy-outline" size={20} color={colors.textWhite} />
+                <Text style={styles.activityText}>Achievements</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Health Data</Text>
+            <Text style={styles.cardSubtitle}>View your health metrics</Text> 
+          </View>
+
+          <HealthDataDisplay />
+
 
       <Text style={styles.title}>Hi, welcome to WellMed!</Text>
       <Text style={styles.subtitle}>Your burnout prevention journey starts here 🌱</Text>
       <Button title="Go to Profile" onPress={() => navigation.navigate('Profile')} color={colors.secondary} />
 
-    </View>
+    </ScrollView>
   );
 }
 
@@ -90,7 +104,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.backgroundPrimary,
-    alignItems: 'center',
+    // alignItems: 'center',
     // justifyContent: 'center',
     paddingTop: 40,
   },
@@ -128,6 +142,8 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,
+    alignSelf: 'center',
+    justifyContent: 'center',
   },
   cardTitle: {
     fontSize: 20,
