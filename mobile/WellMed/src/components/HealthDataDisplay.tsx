@@ -9,14 +9,24 @@ const permissions: HealthKitPermissions = {
       AppleHealthKit.Constants.Permissions.StepCount,
       AppleHealthKit.Constants.Permissions.SleepAnalysis,
     ],
-    write: [], // required even if you don’t write
+    write: [],
   },
 };
 
 export default function HealthDataDisplay() {
   const [loading, setLoading] = useState(true);
+  console.log('HealthDataDisplay component mounted');
+    // console.log('HealthKit permissions:', permissions);
+    // console.log('HealthKit permissions:', permissions.permissions.read);
+    // console.log('HealthKit permissions:', permissions.permissions.write);
+    // console.log('HealthKit permissions:', permissions.permissions.read.includes(AppleHealthKit.Constants.Permissions.HeartRate));
+    // console.log('HealthKit permissions:', permissions.permissions.read.includes(AppleHealthKit.Constants.Permissions.StepCount));
+    // console.log('HealthKit permissions:', permissions.permissions.read.includes(AppleHealthKit.Constants.Permissions.SleepAnalysis));  
   const [stepCount, setStepCount] = useState<number | null>(null);
   const [heartRate, setHeartRate] = useState<number | null>(null);
+  const [sleepAnalysis, setSleepAnalysis] = useState<string | null>(null);
+    console.log('HealthDataDisplay component rendered');
+    console.log('Initial state:', { stepCount, heartRate, sleepAnalysis });
 
   useEffect(() => {
     AppleHealthKit.initHealthKit(permissions, (error) => {
@@ -59,9 +69,10 @@ export default function HealthDataDisplay() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Health Data</Text>
-      <Text style={styles.metric}>Steps today: {stepCount ?? 'N/A'}</Text>
-      <Text style={styles.metric}>Recent Heart Rate: {heartRate ?? 'N/A'} BPM</Text>
+        {/* <Text style={styles.title}>Health Data</Text> */}
+        <Text style={styles.metric}>Steps today: {stepCount ?? 'N/A'}</Text>
+        <Text style={styles.metric}>Recent Heart Rate: {heartRate ?? 'N/A'} BPM</Text>
+        <Text style={styles.metric}>Sleep: {sleepAnalysis ?? 'N/A'}</Text>
     </View>
   );
 }

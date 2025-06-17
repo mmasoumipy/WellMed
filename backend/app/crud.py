@@ -222,3 +222,110 @@ def get_chatbot_conversation(db: Session, user_id: int, conversation_id: int):
         models.ChatbotConversation.user_id == user_id,
         models.ChatbotConversation.id == conversation_id
     ).first() 
+
+
+
+# WELLNESS ACTIVITIES
+def create_wellness_activity(db: Session, activity: schemas.WellnessActivityCreate):
+    db_activity = models.WellnessActivity(**activity.dict())
+    db.add(db_activity)
+    db.commit()
+    db.refresh(db_activity)
+    return db_activity
+
+def get_user_wellness_activities(db: Session, user_id: UUID, limit: int = 50):
+    return db.query(models.WellnessActivity).filter(
+        models.WellnessActivity.user_id == user_id
+    ).order_by(models.WellnessActivity.completed_at.desc()).limit(limit).all()
+
+def get_wellness_activity_by_id(db: Session, activity_id: UUID):
+    return db.query(models.WellnessActivity).filter(
+        models.WellnessActivity.id == activity_id
+    ).first()
+
+def get_user_wellness_stats(db: Session, user_id: UUID):
+    from sqlalchemy import func
+    from datetime import datetime, timedelta
+    
+    activities = db.query(models.WellnessActivity).filter(
+        models.WellnessActivity.user_id == user_id
+    ).all()
+    
+    if not activities:
+        return {
+            "total_sessions": 0,
+            "total_duration_minutes": 0,
+            "box_breathing_sessions": 0,
+            "stretching_sessions": 0,
+            "avg_session_duration": 0,
+            "longest_session_duration": 0,
+            "current_streak": 0,
+            "activities_this_week": 0
+        }
+    
+    total_sessions = len(activities)
+    total_duration = sum(a.duration_seconds for a in activities)
+    total_duration_minutes = total_duration // 60
+    
+    box_breathing_count = len([a for a in activities if a.activity_type == 'box_breathing'])
+    stretching_count = len([a for a in activities if a.activity_type == 'stretching'])
+    
+    avg_duration = total_duration / total_sessions if total_sessions > 0 else 0
+    longest_duration = max((a.duration_seconds for a in activities), default=0)
+    
+    # Calculate activities this week
+    week_ago = datetime.utcnow() - timedelta(days=7)
+    activities_this_week = len([a for a in activities if a.completed_at >= week_ago])
+    
+    # Calculate current streak (consecutive days with activities)
+    current_streak = calculate_activity_streak(activities)
+    
+    return {
+        "total_sessions": total_sessions,
+        "total_duration_minutes": total_duration_minutes,
+        "box_breathing_sessions": box_breathing_count,
+        "stretching_sessions": stretching_count,
+        "avg_session_duration": avg_duration,
+        "longest_session_duration": longest_duration,
+        "current_streak": current_streak,
+        "activities_this_week": activities_this_week
+    }
+
+def calculate_activity_streak(activities):
+    """Calculate current streak of consecutive days with wellness activities"""
+    if not activities:
+        return 0
+    
+    from datetime import datetime, timedelta
+    
+    # Group activities by date
+    activity_dates = set()
+    for activity in activities:
+        activity_dates.add(activity.completed_at.date())
+    
+    # Sort dates in descending order
+    sorted_dates = sorted(activity_dates, reverse=True)
+    
+    if not sorted_dates:
+        return 0
+    
+    # Check if there's activity today or yesterday
+    today = datetime.utcnow().date()
+    yesterday = today - timedelta(days=1)
+    
+    if sorted_dates[0] not in [today, yesterday]:
+        return 0
+    
+    # Count consecutive days
+    streak = 1
+    current_date = sorted_dates[0]
+    
+    for i in range(1, len(sorted_dates)):
+        expected_date = current_date - timedelta(days=1)
+        if sorted_dates[i] == expected_date:
+            streak += 1
+            current_date = sorted_dates[i]
+        else:
+            break
+    
+    return streak

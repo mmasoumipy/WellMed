@@ -213,3 +213,45 @@ class ChatMessageOut(ChatMessageBase):
 
     class Config:
         orm_mode = True
+
+
+# WELLNESS ACTIVITIES
+class WellnessActivityBase(BaseModel):
+    user_id: UUID
+    activity_type: str  # 'box_breathing', 'stretching'
+    duration_seconds: int
+    cycles_completed: Optional[int] = None
+    poses_completed: Optional[int] = None
+    session_data: Optional[str] = None  # JSON string
+    completed_at: datetime
+
+class WellnessActivityCreate(WellnessActivityBase):
+    pass
+
+class WellnessActivityResponse(WellnessActivityBase):
+    id: UUID
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class WellnessActivityOut(WellnessActivityBase):
+    id: UUID
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+# WELLNESS STATISTICS
+class WellnessStatsResponse(BaseModel):
+    total_sessions: int
+    total_duration_minutes: int
+    box_breathing_sessions: int
+    stretching_sessions: int
+    avg_session_duration: float
+    longest_session_duration: int
+    current_streak: int
+    activities_this_week: int
+
+    class Config:
+        from_attributes = True

@@ -12,6 +12,7 @@ from .conversations import Conversation
 from .messages import Message
 from .reminders import Reminder
 from .health_data import HealthData
+from .wellness_activities import WellnessActivity
 from app.database import Base
 
 # Optional: list all for easy access
@@ -28,5 +29,7 @@ __all__ = [
     "Reminder",
     "HealthData"
     "Conversation",
-    "Message"
+    "Message",
+    "WellnessActivity",
+    
 ]

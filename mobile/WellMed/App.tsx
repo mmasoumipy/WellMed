@@ -18,6 +18,7 @@ import MBIAssessmentScreen from './src/screens/MBIAssessmentScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import BoxBreathingScreen from './src/screens/BoxBreathingScreen';
 import StretchScreen from './src/screens/StretchScreen';
+import WellnessHistoryScreen from './src/screens/WellnessHistoryScreen';
 
 
 const Stack = createNativeStackNavigator();
@@ -117,6 +118,7 @@ export default function App() {
         <Stack.Screen name="Home" component={MainTabs} options={{ headerShown: false }} />
         <Stack.Screen name="BoxBreathing" component={BoxBreathingScreen} options={{ title: 'Box Breathing'}} />
         <Stack.Screen name="Stretch" component={StretchScreen} options={{ title: 'Stretching' }} />
+        <Stack.Screen name="WellnessHistory" component={WellnessHistoryScreen} options={{ title: 'Wellness History' }} />
 
       </Stack.Navigator>
     </NavigationContainer>

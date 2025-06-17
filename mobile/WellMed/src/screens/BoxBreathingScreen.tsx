@@ -177,6 +177,11 @@ export default function BoxBreathingScreen({ navigation }: any) {
         cycles_completed: cycleCount,
         total_duration: sessionDuration,
         average_cycle_time: cycleCount > 0 ? sessionDuration / cycleCount : 0,
+        phase_breakdown: {
+          total_cycles: cycleCount,
+          session_start: sessionStartTime.toISOString(),
+          session_end: new Date().toISOString()
+        }
       };
 
       const payload = {

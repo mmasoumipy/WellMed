@@ -172,27 +172,46 @@ export default function StretchScreen({ navigation }: any) {
   const saveSessionToDatabase = async () => {
     try {
       const userId = await AsyncStorage.getItem('userId');
-      if (!userId) return;
+      if (!userId) {
+        console.log('No userId found in AsyncStorage');
+        return;
+      }
 
       const sessionData = {
         poses_completed: completedPoses.length + 1, // +1 for current pose
         poses_list: [...completedPoses, poses[poseIndex].name],
         total_duration: totalTime,
         average_pose_time: totalTime / (completedPoses.length + 1),
+        session_breakdown: poses.map((pose, index) => ({
+          pose_name: pose.name,
+          completed: index <= poseIndex,
+          duration_seconds: pose.duration
+        }))
       };
 
-      await api.post('/wellness/', {
+      const payload = {
         user_id: userId,
         activity_type: 'stretching',
         duration_seconds: totalTime,
         poses_completed: completedPoses.length + 1,
         session_data: JSON.stringify(sessionData),
         completed_at: new Date().toISOString(),
-      });
+      };
 
-      console.log('Stretching session saved to database');
-    } catch (error) {
+      console.log('Saving stretching session:', payload);
+
+      const response = await api.post('/wellness/', payload);
+      
+      console.log('Stretching session saved successfully:', response.data);
+    } catch (error: any) {
       console.error('Error saving stretching session:', error);
+      console.error('Error details:', error?.response?.data);
+      
+      // Show user-friendly error but don't prevent session completion
+      Alert.alert(
+        'Save Error', 
+        'Session completed but could not save to history. Please check your connection.'
+      );
     }
   };
 

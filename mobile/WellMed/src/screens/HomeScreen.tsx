@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import MoodSelector from '../components/MoodSelector';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import HealthDataDisplay from '../components/HealthDataDisplay';
+import WellnessHistoryScreen from './WellnessHistoryScreen';
 import api from '../api/api';
 console.log(PUBLIC_API_BASE_URL);
 
@@ -59,6 +60,11 @@ export default function HomeScreen({ navigation }: any) {
                   onPress={() => navigation.navigate('Stretch')}>
                   <Text style={styles.activityText}>Start Stretching</Text>
                 </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.activityButton}
+                  onPress={() => navigation.navigate('WellnessHistory')}>
+                  <Text style={styles.activityText}>View Wellness History</Text>
+                </TouchableOpacity>
             </View>
           </View>
 
@@ -86,10 +92,11 @@ export default function HomeScreen({ navigation }: any) {
 
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Health Data</Text>
-            <Text style={styles.cardSubtitle}>View your health metrics</Text> 
+            {/* <Text style={styles.cardSubtitle}>View your health metrics</Text>  */}
+            <HealthDataDisplay />
           </View>
 
-          <HealthDataDisplay />
+          
 
 
       <Text style={styles.title}>Hi, welcome to WellMed!</Text>
