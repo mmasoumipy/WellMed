@@ -50,5 +50,13 @@
 	<false/>
 	<key>NSUserNotificationUsageDescription</key>
 	<string>We need to send you notifications to keep you updated.</string>
+
+	<key>NSHealthShareUsageDescription</key>
+	<string>Read and understand health data.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Share workout data with other apps.</string>
+	<!-- Below is only required if requesting clinical health data -->
+	<key>NSHealthClinicalHealthRecordsShareUsageDescription</key>
+	<string>Read and understand clinical health data.</string>
 </dict>
 </plist>
