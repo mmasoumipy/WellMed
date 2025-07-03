@@ -260,6 +260,7 @@ def get_user_wellness_stats(db: Session, user_id: UUID):
             "avg_session_duration": 0,
             "longest_session_duration": 0,
             "current_streak": 0,
+            "longest_streak": 0,  # Add this
             "activities_this_week": 0
         }
     
@@ -277,8 +278,8 @@ def get_user_wellness_stats(db: Session, user_id: UUID):
     week_ago = datetime.utcnow() - timedelta(days=7)
     activities_this_week = len([a for a in activities if a.completed_at >= week_ago])
     
-    # Calculate current streak (consecutive days with activities)
-    current_streak = calculate_activity_streak(activities)
+    # Calculate current and longest streak using enhanced function
+    current_streak, longest_streak = calculate_enhanced_user_streak(db, user_id)
     
     return {
         "total_sessions": total_sessions,
@@ -288,8 +289,10 @@ def get_user_wellness_stats(db: Session, user_id: UUID):
         "avg_session_duration": avg_duration,
         "longest_session_duration": longest_duration,
         "current_streak": current_streak,
+        "longest_streak": longest_streak,  # Add this field
         "activities_this_week": activities_this_week
     }
+
 
 def calculate_activity_streak(activities):
     """Calculate current streak of consecutive days with wellness activities"""
@@ -329,3 +332,118 @@ def calculate_activity_streak(activities):
             break
     
     return streak
+
+def get_user_activity_history_for_streak(db: Session, user_id: UUID, days: int = 30):
+    """Get activity history for streak calculation"""
+    from datetime import datetime, timedelta
+    from sqlalchemy import func, or_
+    
+    # Get date range
+    end_date = datetime.utcnow()
+    start_date = end_date - timedelta(days=days)
+    
+    # Get all activity types for the user in the date range
+    activities = {
+        'moods': db.query(models.MoodEntry).filter(
+            models.MoodEntry.user_id == user_id,
+            models.MoodEntry.timestamp >= start_date
+        ).all(),
+        'micro_assessments': db.query(models.MicroAssessment).filter(
+            models.MicroAssessment.user_id == user_id,
+            models.MicroAssessment.submitted_at >= start_date
+        ).all(),
+        'mbi_assessments': db.query(models.MBIAssessment).filter(
+            models.MBIAssessment.user_id == user_id,
+            models.MBIAssessment.submitted_at >= start_date
+        ).all(),
+        'wellness_activities': db.query(models.WellnessActivity).filter(
+            models.WellnessActivity.user_id == user_id,
+            models.WellnessActivity.completed_at >= start_date
+        ).all(),
+    }
+    
+    # Group by date
+    activity_by_date = {}
+    
+    # Process each activity type
+    for activity_type, activity_list in activities.items():
+        for activity in activity_list:
+            # Get the date for this activity
+            if hasattr(activity, 'timestamp'):
+                activity_date = activity.timestamp.date()
+            elif hasattr(activity, 'submitted_at'):
+                activity_date = activity.submitted_at.date()
+            elif hasattr(activity, 'completed_at'):
+                activity_date = activity.completed_at.date()
+            else:
+                continue
+                
+            date_str = activity_date.isoformat()
+            
+            if date_str not in activity_by_date:
+                activity_by_date[date_str] = {
+                    'date': date_str,
+                    'mood': False,
+                    'microAssessment': False,
+                    'mbiAssessment': False,
+                    'activities': {'boxBreathing': 0, 'stretching': 0}
+                }
+            
+            # Mark the appropriate activity type
+            if activity_type == 'moods':
+                activity_by_date[date_str]['mood'] = True
+            elif activity_type == 'micro_assessments':
+                activity_by_date[date_str]['microAssessment'] = True
+            elif activity_type == 'mbi_assessments':
+                activity_by_date[date_str]['mbiAssessment'] = True
+            elif activity_type == 'wellness_activities':
+                if activity.activity_type == 'box_breathing':
+                    activity_by_date[date_str]['activities']['boxBreathing'] += 1
+                elif activity.activity_type == 'stretching':
+                    activity_by_date[date_str]['activities']['stretching'] += 1
+    
+    # Fill in missing dates with no activity
+    current_date = start_date.date()
+    while current_date <= end_date.date():
+        date_str = current_date.isoformat()
+        if date_str not in activity_by_date:
+            activity_by_date[date_str] = {
+                'date': date_str,
+                'mood': False,
+                'microAssessment': False,
+                'mbiAssessment': False,
+                'activities': {'boxBreathing': 0, 'stretching': 0}
+            }
+        current_date += timedelta(days=1)
+    
+    # Convert to sorted list
+    return sorted(activity_by_date.values(), key=lambda x: x['date'])
+
+def calculate_enhanced_user_streak(db: Session, user_id: UUID):
+    """Calculate current and longest streak for user"""
+    history = get_user_activity_history_for_streak(db, user_id, days=365)  # Get full year for longest streak
+    
+    def has_activity(day):
+        return (day['mood'] or day['microAssessment'] or day['mbiAssessment'] or 
+                day['activities']['boxBreathing'] > 0 or day['activities']['stretching'] > 0)
+    
+    # Calculate current streak (from most recent day backwards)
+    current_streak = 0
+    for day in reversed(history):
+        if has_activity(day):
+            current_streak += 1
+        else:
+            break
+    
+    # Calculate longest streak
+    longest_streak = 0
+    temp_streak = 0
+    
+    for day in history:
+        if has_activity(day):
+            temp_streak += 1
+            longest_streak = max(longest_streak, temp_streak)
+        else:
+            temp_streak = 0
+    
+    return current_streak, longest_streak
