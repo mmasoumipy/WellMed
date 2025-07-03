@@ -13,6 +13,7 @@ import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
+import CarelyJournalScreen from './src/screens/CarelyJournalScreen';
 import MicroAssessmentScreen from './src/screens/MicroAssessmentScreen';
 import MBIAssessmentScreen from './src/screens/MBIAssessmentScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
@@ -60,7 +61,7 @@ export default function App() {
     const checkToken = async () => {
       const token = await AsyncStorage.getItem('authToken');
       if (token) {
-        setInitialRoute('Main');
+        setInitialRoute('Home');
       }
     };
     checkToken();
@@ -70,28 +71,66 @@ export default function App() {
     return (
       <Tab.Navigator
         screenOptions={({ route }) => ({
-          tabBarIcon: ({ color, size }) => {
+          tabBarIcon: ({ color, size, focused }) => {
             let iconName = 'home-outline';
+            
             if (route.name === 'Home') {
-              iconName = 'home-outline';
+              iconName = focused ? 'home' : 'home-outline';
+            } else if (route.name === 'CarelyJournal') {
+              iconName = focused ? 'heart' : 'heart-outline';
             } else if (route.name === 'Profile' || 
                       route.name === 'ProfileMood' || 
                       route.name === 'ProfileAssessment' || 
                       route.name === 'ProfileMicroAssessment') {
-              iconName = 'person-outline';
+              iconName = focused ? 'person' : 'person-outline';
             }
-            else if (route.name === 'MicroAssessment') {
-              iconName = 'person-outline';
-            }
+            
             return <Ionicons name={iconName} size={size} color={color} />;
           },
           tabBarActiveTintColor: colors.primary,
           tabBarInactiveTintColor: colors.textSecondary,
-          tabBarStyle: { backgroundColor: colors.backgroundPrimary },
+          tabBarStyle: { 
+            backgroundColor: colors.backgroundPrimary,
+            borderTopWidth: 1,
+            borderTopColor: colors.divider,
+            paddingTop: 5,
+            paddingBottom: Platform.OS === 'ios' ? 20 : 5,
+            height: Platform.OS === 'ios' ? 85 : 60,
+          },
+          tabBarLabelStyle: {
+            fontSize: 12,
+            fontWeight: '600',
+            marginBottom: Platform.OS === 'ios' ? 0 : 5,
+          },
+          tabBarIconStyle: {
+            marginTop: Platform.OS === 'ios' ? 0 : 5,
+          },
         })}
       >
-        <Tab.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
-        <Tab.Screen name="Profile" component={ProfileStackScreen} options={{ headerShown: false }} />
+        <Tab.Screen 
+          name="Home" 
+          component={HomeScreen} 
+          options={{ 
+            headerShown: false,
+            tabBarLabel: 'Home',
+          }} 
+        />
+        <Tab.Screen 
+          name="CarelyJournal" 
+          component={CarelyJournalScreen} 
+          options={{ 
+            headerShown: false,
+            tabBarLabel: 'Carely',
+          }} 
+        />
+        <Tab.Screen 
+          name="Profile" 
+          component={ProfileStackScreen} 
+          options={{ 
+            headerShown: false,
+            tabBarLabel: 'Profile',
+          }} 
+        />
       </Tab.Navigator>
     );
   }
@@ -119,7 +158,6 @@ export default function App() {
         <Stack.Screen name="BoxBreathing" component={BoxBreathingScreen} options={{ title: 'Box Breathing'}} />
         <Stack.Screen name="Stretch" component={StretchScreen} options={{ title: 'Stretching' }} />
         <Stack.Screen name="WellnessHistory" component={WellnessHistoryScreen} options={{ title: 'Wellness History' }} />
-
       </Stack.Navigator>
     </NavigationContainer>
   );
