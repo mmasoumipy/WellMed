@@ -15,8 +15,9 @@ type BurnoutRiskResult = {
   combinedScore: string;
   riskLevel: string;
   breakdown: {
-    moodScore: number;
-    microScore: number;
+    emotionalExhaustion: number;
+    depersonalization: number;
+    personalAccomplishment: number;
     mbiScore: number;
   };
   recommendations: string[];
@@ -25,58 +26,51 @@ type BurnoutRiskResult = {
 type BurnoutTrend = 'improving' | 'worsening' | 'stable';
 
 export const calculateBurnoutRisk = ({
-  moodAverage,
-  microAssessment,
   mbiAssessment,
 }: {
-  moodAverage: number;
-  microAssessment: MicroAssessment;
   mbiAssessment: MbiAssessment;
 }): BurnoutRiskResult => {
-  // Mood score (0-10, where higher is better mood, so we need to invert for risk)
-  const moodScore = Math.max(0, 10 - ((moodAverage - 1) / 5 * 10));
-
-  // Micro assessment score (0-10, where higher indicates more risk)
-  const microAvg =
-    (microAssessment.fatigue +
-      microAssessment.stress +
-      (6 - microAssessment.satisfaction) +  // Invert satisfaction
-      (6 - microAssessment.sleep)) /        // Invert sleep quality
-    4;
-  const microScore = (microAvg / 5) * 10;
-
-  // MBI score (0-10, where higher indicates more burnout risk)
-  // EE and DP: higher is worse, PA: lower is worse
-  const normalizedEE = Math.min(10, (mbiAssessment.EE / 54) * 10); // Max EE is typically 54
-  const normalizedDP = Math.min(10, (mbiAssessment.DP / 30) * 10); // Max DP is typically 30
-  const normalizedPA = Math.min(10, ((48 - mbiAssessment.PA) / 48) * 10); // Max PA is typically 48, inverted
+  // MBI score calculation - based purely on MBI dimensions
+  // EE and DP: higher scores indicate more burnout
+  // PA: lower scores indicate more burnout (so we invert it)
   
-  const mbiScore = (normalizedEE + normalizedDP + normalizedPA) / 3;
+  // Normalize each dimension to 0-10 scale
+  // These are based on established MBI cutoff scores for healthcare professionals
+  const normalizedEE = Math.min(10, (mbiAssessment.EE / 54) * 10); // Max EE is typically 54 (9 items × 6 points)
+  const normalizedDP = Math.min(10, (mbiAssessment.DP / 30) * 10); // Max DP is typically 30 (5 items × 6 points)
+  const normalizedPA = Math.min(10, ((48 - mbiAssessment.PA) / 48) * 10); // Max PA is typically 48 (8 items × 6 points), inverted
 
-  // Combined score with weighted averages
-  const combined = (moodScore * 0.2 + microScore * 0.3 + mbiScore * 0.5);
+  // Calculate overall MBI burnout score
+  // Weight: EE (40%), DP (30%), PA (30%) - EE is most predictive of burnout
+  const mbiScore = (normalizedEE * 0.4) + (normalizedDP * 0.3) + (normalizedPA * 0.3);
 
-  // Determine risk level
+  // The combined score is now just the MBI score
+  const combinedScore = mbiScore;
+
+  // Determine risk level based on established MBI cutoffs
   let riskLevel = 'Low';
-  if (combined >= 7) riskLevel = 'High';
-  else if (combined >= 4) riskLevel = 'Medium';
+  if (combinedScore >= 7) {
+    riskLevel = 'High';
+  } else if (combinedScore >= 4) {
+    riskLevel = 'Medium';
+  }
 
-  // Generate recommendations based on scores
-  const recommendations = generateRecommendations({
-    moodScore,
-    microScore,
-    mbiScore,
-    combined,
-    microAssessment,
+  // Generate recommendations based on MBI dimensions
+  const recommendations = generateMBIRecommendations({
     mbiAssessment,
+    normalizedEE,
+    normalizedDP,
+    normalizedPA,
+    combinedScore,
   });
 
   return { 
-    combinedScore: combined.toFixed(1), 
+    combinedScore: combinedScore.toFixed(1), 
     riskLevel,
     breakdown: {
-      moodScore: parseFloat(moodScore.toFixed(1)),
-      microScore: parseFloat(microScore.toFixed(1)),
+      emotionalExhaustion: parseFloat(normalizedEE.toFixed(1)),
+      depersonalization: parseFloat(normalizedDP.toFixed(1)),
+      personalAccomplishment: parseFloat(normalizedPA.toFixed(1)),
       mbiScore: parseFloat(mbiScore.toFixed(1)),
     },
     recommendations,
@@ -85,18 +79,13 @@ export const calculateBurnoutRisk = ({
 
 export const calculateBurnoutTrend = (
   currentAssessment: MbiAssessment,
-  previousAssessment: MbiAssessment,
-  moodAverage: number = 4
+  previousAssessment: MbiAssessment
 ): BurnoutTrend => {
   const currentRisk = calculateBurnoutRisk({
-    moodAverage,
-    microAssessment: { fatigue: 3, stress: 3, satisfaction: 3, sleep: 3 },
     mbiAssessment: currentAssessment,
   });
 
   const previousRisk = calculateBurnoutRisk({
-    moodAverage,
-    microAssessment: { fatigue: 3, stress: 3, satisfaction: 3, sleep: 3 },
     mbiAssessment: previousAssessment,
   });
 
@@ -111,72 +100,65 @@ export const calculateBurnoutTrend = (
   return 'stable';
 };
 
-const generateRecommendations = ({
-  moodScore,
-  microScore,
-  mbiScore,
-  combined,
-  microAssessment,
+const generateMBIRecommendations = ({
   mbiAssessment,
+  normalizedEE,
+  normalizedDP,
+  normalizedPA,
+  combinedScore,
 }: {
-  moodScore: number;
-  microScore: number;
-  mbiScore: number;
-  combined: number;
-  microAssessment: MicroAssessment;
   mbiAssessment: MbiAssessment;
+  normalizedEE: number;
+  normalizedDP: number;
+  normalizedPA: number;
+  combinedScore: number;
 }): string[] => {
   const recommendations: string[] = [];
 
   // High-priority recommendations for severe burnout
-  if (combined >= 7) {
-    recommendations.push("Consider speaking with a mental health professional");
-    recommendations.push("Take immediate steps to reduce workload if possible");
+  if (combinedScore >= 7) {
+    recommendations.push("Consider speaking with a mental health professional immediately");
+    recommendations.push("Take steps to reduce workload and delegate responsibilities where possible");
   }
 
-  // MBI-specific recommendations
-  if (mbiAssessment.EE > 27) { // High emotional exhaustion (>50% of max)
-    recommendations.push("Practice stress-reduction techniques like meditation or deep breathing");
-    recommendations.push("Ensure adequate rest between demanding tasks");
+  // Emotional Exhaustion specific recommendations
+  if (normalizedEE >= 6) {
+    recommendations.push("Practice daily stress-reduction techniques like meditation or deep breathing");
+    recommendations.push("Ensure adequate rest between demanding tasks and take regular breaks");
+    recommendations.push("Consider using our box breathing exercises for immediate stress relief");
+  } else if (normalizedEE >= 4) {
+    recommendations.push("Monitor your stress levels and practice preventive self-care");
   }
 
-  if (mbiAssessment.DP > 10) { // High depersonalization
-    recommendations.push("Reconnect with the meaningful aspects of your work");
-    recommendations.push("Seek peer support and professional community");
+  // Depersonalization specific recommendations
+  if (normalizedDP >= 6) {
+    recommendations.push("Reconnect with the meaningful aspects of your work and patient relationships");
+    recommendations.push("Seek peer support and engage with your professional community");
+    recommendations.push("Practice empathy exercises and reflect on positive patient interactions");
+  } else if (normalizedDP >= 4) {
+    recommendations.push("Make time for meaningful connections with colleagues and patients");
   }
 
-  if (mbiAssessment.PA < 32) { // Low personal accomplishment
-    recommendations.push("Set small, achievable goals to rebuild confidence");
-    recommendations.push("Celebrate your successes, no matter how small");
-  }
-
-  // Micro assessment recommendations
-  if (microAssessment.fatigue >= 4) {
-    recommendations.push("Prioritize sleep hygiene and regular rest periods");
-  }
-
-  if (microAssessment.stress >= 4) {
-    recommendations.push("Try our box breathing exercises for immediate stress relief");
-  }
-
-  if (microAssessment.satisfaction <= 2) {
-    recommendations.push("Reflect on what aspects of work bring you joy");
-  }
-
-  if (microAssessment.sleep <= 2) {
-    recommendations.push("Establish a consistent sleep schedule");
-  }
-
-  // Mood-based recommendations
-  if (moodScore >= 6) {
-    recommendations.push("Use our daily mood tracking to identify patterns");
-    recommendations.push("Consider regular physical exercise or stretching");
+  // Personal Accomplishment specific recommendations
+  if (normalizedPA >= 6) {
+    recommendations.push("Set small, achievable professional goals to rebuild confidence");
+    recommendations.push("Keep a journal of your daily accomplishments and positive impacts");
+    recommendations.push("Seek feedback from supervisors and colleagues about your contributions");
+  } else if (normalizedPA >= 4) {
+    recommendations.push("Celebrate your successes and acknowledge your professional growth");
   }
 
   // General wellness recommendations for all levels
-  if (recommendations.length === 0) {
-    recommendations.push("Continue your wellness journey with daily mood tracking");
-    recommendations.push("Regular stretching and breathing exercises maintain good mental health");
+  if (combinedScore >= 4) {
+    recommendations.push("Maintain work-life boundaries and engage in activities outside of work");
+    recommendations.push("Use our wellness tracking features to monitor your progress");
+  }
+
+  // If low risk, provide maintenance recommendations
+  if (combinedScore < 4) {
+    recommendations.push("Continue your current self-care practices");
+    recommendations.push("Regular MBI assessments help maintain awareness of your wellbeing");
+    recommendations.push("Use our daily mood tracking and wellness activities preventively");
   }
 
   return recommendations.slice(0, 4); // Limit to 4 most relevant recommendations
@@ -206,18 +188,18 @@ export const formatBurnoutInsight = (
   currentRisk: BurnoutRiskResult,
   trend?: BurnoutTrend
 ): string => {
-  let insight = `Your burnout risk is currently ${currentRisk.riskLevel.toLowerCase()} (${currentRisk.combinedScore}/10).`;
+  let insight = `Your MBI burnout risk is currently ${currentRisk.riskLevel.toLowerCase()} (${currentRisk.combinedScore}/10).`;
   
   if (trend) {
     switch (trend) {
       case 'improving':
-        insight += " Great news - your risk has decreased since your last assessment!";
+        insight += " Great news - your burnout risk has decreased since your last MBI assessment!";
         break;
       case 'worsening':
-        insight += " Your risk has increased since your last assessment. Consider taking preventive action.";
+        insight += " Your burnout risk has increased since your last MBI assessment. Consider taking preventive action.";
         break;
       case 'stable':
-        insight += " Your risk level has remained stable since your last assessment.";
+        insight += " Your burnout risk level has remained stable since your last MBI assessment.";
         break;
     }
   }
@@ -225,7 +207,29 @@ export const formatBurnoutInsight = (
   return insight;
 };
 
-// Calculate streak for any type of activity
+export const getMBIDimensionInterpretation = (dimension: 'EE' | 'DP' | 'PA', score: number): string => {
+  switch (dimension) {
+    case 'EE':
+      if (score >= 27) return 'High emotional exhaustion';
+      if (score >= 17) return 'Moderate emotional exhaustion';
+      return 'Low emotional exhaustion';
+    
+    case 'DP':
+      if (score >= 10) return 'High depersonalization';
+      if (score >= 6) return 'Moderate depersonalization';
+      return 'Low depersonalization';
+    
+    case 'PA':
+      if (score <= 31) return 'Low personal accomplishment';
+      if (score <= 38) return 'Moderate personal accomplishment';
+      return 'High personal accomplishment';
+    
+    default:
+      return 'Unknown';
+  }
+};
+
+// Calculate streak for any type of activity (keeping existing functions)
 export const calculateActivityStreak = (activities: Array<{
   date: string;
   hasActivity: boolean;

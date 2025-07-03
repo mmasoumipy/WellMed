@@ -13,7 +13,7 @@ import {
 import { colors } from '../constants/colors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { calculateBurnoutRisk } from '../utils/burnoutRisk';
+import { calculateBurnoutRisk, getMBIDimensionInterpretation } from '../utils/burnoutRisk';
 import api from '../api/api';
 
 interface HistoryData {
@@ -36,6 +36,20 @@ interface UserStats {
   lastActivityDate?: string;
 }
 
+interface BurnoutRisk {
+  combinedScore: string; 
+  riskLevel: string;
+  trend?: 'improving' | 'worsening' | 'stable';
+  breakdown?: {
+    emotionalExhaustion: number;
+    depersonalization: number;
+    personalAccomplishment: number;
+    mbiScore: number;
+  };
+  recommendations?: string[];
+  lastAssessmentDate?: string;
+}
+
 const moodScale: Record<string, number> = {
   Excellent: 6,
   Good: 5,
@@ -48,11 +62,7 @@ const moodScale: Record<string, number> = {
 export default function ProfileScreen({ navigation }: any) {
   const [email, setEmail] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
-  const [burnoutRisk, setBurnoutRisk] = useState<{ 
-    combinedScore: string; 
-    riskLevel: string;
-    trend?: 'improving' | 'worsening' | 'stable';
-  } | null>(null);
+  const [burnoutRisk, setBurnoutRisk] = useState<BurnoutRisk | null>(null);
   const [historyData, setHistoryData] = useState<HistoryData[]>([]);
   const [userStats, setUserStats] = useState<UserStats>({
     currentStreak: 0,
@@ -93,7 +103,7 @@ export default function ProfileScreen({ navigation }: any) {
       const userId = await AsyncStorage.getItem('userId');
       if (!userId) return;
 
-      // Get latest MBI assessments to calculate trend
+      // Get latest MBI assessments to calculate burnout risk and trend
       const mbiResponse = await api.get(`/mbi/user/${userId}`);
       const mbiAssessments = mbiResponse.data;
 
@@ -109,41 +119,8 @@ export default function ProfileScreen({ navigation }: any) {
       const latest = mbiAssessments[0];
       const previous = mbiAssessments[1];
 
-      // Get recent mood data for better accuracy
-      let recentMoodAverage = 4; // Default
-      try {
-        const moodResponse = await api.get(`/moods/user/${userId}`);
-        const recentMoods = moodResponse.data.slice(0, 7); // Last 7 entries
-        if (recentMoods.length > 0) {
-          const moodSum = recentMoods.reduce((sum: number, mood: any) => 
-            sum + (moodScale[mood.mood] || 4), 0);
-          recentMoodAverage = moodSum / recentMoods.length;
-        }
-      } catch (error) {
-        console.log('Could not load mood data for burnout calculation');
-      }
-
-      // Get recent micro assessment data
-      let recentMicroAssessment = { fatigue: 3, stress: 3, satisfaction: 3, sleep: 3 };
-      try {
-        const microResponse = await api.get(`/micro/user/${userId}`);
-        if (microResponse.data.length > 0) {
-          const latestMicro = microResponse.data[0];
-          recentMicroAssessment = {
-            fatigue: latestMicro.fatigue_level,
-            stress: latestMicro.stress_level,
-            satisfaction: latestMicro.work_satisfaction,
-            sleep: latestMicro.sleep_quality,
-          };
-        }
-      } catch (error) {
-        console.log('Could not load micro assessment data for burnout calculation');
-      }
-
-      // Calculate current burnout risk
+      // Calculate current burnout risk based only on MBI data
       const currentRisk = calculateBurnoutRisk({
-        moodAverage: recentMoodAverage,
-        microAssessment: recentMicroAssessment,
         mbiAssessment: {
           EE: latest.emotional_exhaustion,
           DP: latest.depersonalization,
@@ -155,8 +132,6 @@ export default function ProfileScreen({ navigation }: any) {
       let trend: 'improving' | 'worsening' | 'stable' = 'stable';
       if (previous) {
         const previousRisk = calculateBurnoutRisk({
-          moodAverage: recentMoodAverage,
-          microAssessment: recentMicroAssessment,
           mbiAssessment: {
             EE: previous.emotional_exhaustion,
             DP: previous.depersonalization,
@@ -177,7 +152,10 @@ export default function ProfileScreen({ navigation }: any) {
       setBurnoutRisk({ 
         combinedScore: currentRisk.combinedScore,
         riskLevel: currentRisk.riskLevel,
-        trend 
+        breakdown: currentRisk.breakdown,
+        recommendations: currentRisk.recommendations,
+        trend,
+        lastAssessmentDate: latest.submitted_at
       });
     } catch (error) {
       console.error('Error loading burnout risk:', error);
@@ -214,8 +192,10 @@ export default function ProfileScreen({ navigation }: any) {
 
       // Load actual data and populate
       try {
-        const [moodResponse, wellnessResponse] = await Promise.all([
+        const [moodResponse, mbiResponse, microResponse, wellnessResponse] = await Promise.all([
           api.get(`/moods/user/${userId}`).catch(() => ({ data: [] })),
+          api.get(`/mbi/user/${userId}`).catch(() => ({ data: [] })),
+          api.get(`/micro/user/${userId}`).catch(() => ({ data: [] })),
           api.get(`/wellness/user/${userId}`).catch(() => ({ data: [] })),
         ]);
 
@@ -228,6 +208,18 @@ export default function ProfileScreen({ navigation }: any) {
             new Date(mood.timestamp).toISOString().split('T')[0] === dayDate
           );
           day.mood = moodExists;
+
+          // Check MBI assessments
+          const mbiExists = mbiResponse.data.some((assessment: any) => 
+            new Date(assessment.submitted_at).toISOString().split('T')[0] === dayDate
+          );
+          day.mbiAssessment = mbiExists;
+
+          // Check micro assessments
+          const microExists = microResponse.data.some((assessment: any) => 
+            new Date(assessment.submitted_at).toISOString().split('T')[0] === dayDate
+          );
+          day.microAssessment = microExists;
 
           // Check wellness activities
           const dayWellnessActivities = wellnessResponse.data.filter((activity: any) => 
@@ -254,6 +246,13 @@ export default function ProfileScreen({ navigation }: any) {
       const userId = await AsyncStorage.getItem('userId');
       if (!userId) return;
 
+      // Get actual counts from API
+      const [moodResponse, mbiResponse, microResponse] = await Promise.all([
+        api.get(`/moods/user/${userId}`).catch(() => ({ data: [] })),
+        api.get(`/mbi/user/${userId}`).catch(() => ({ data: [] })),
+        api.get(`/micro/user/${userId}`).catch(() => ({ data: [] })),
+      ]);
+
       // Calculate streaks from history data
       const streak = calculateActivityStreak(historyData);
       const longestStreak = calculateLongestStreak(historyData);
@@ -261,9 +260,9 @@ export default function ProfileScreen({ navigation }: any) {
       setUserStats({
         currentStreak: streak,
         longestStreak,
-        totalMoodEntries: 12, // Mock data
-        totalMicroAssessments: 5,
-        totalMBIAssessments: 2,
+        totalMoodEntries: moodResponse.data.length,
+        totalMicroAssessments: microResponse.data.length,
+        totalMBIAssessments: mbiResponse.data.length,
         lastActivityDate: findLastActivityDate(historyData),
       });
     } catch (error) {
@@ -373,12 +372,31 @@ export default function ProfileScreen({ navigation }: any) {
       }
     };
 
+    const showDetailedBreakdown = () => {
+      if (!burnoutRisk.breakdown) return;
+
+      const { breakdown } = burnoutRisk;
+      let message = 'MBI Dimension Breakdown:\n\n';
+      message += `Emotional Exhaustion: ${breakdown.emotionalExhaustion}/10\n`;
+      message += `Depersonalization: ${breakdown.depersonalization}/10\n`;
+      message += `Personal Accomplishment: ${breakdown.personalAccomplishment}/10\n\n`;
+      
+      if (burnoutRisk.recommendations && burnoutRisk.recommendations.length > 0) {
+        message += 'Recommendations:\n';
+        burnoutRisk.recommendations.forEach((rec, index) => {
+          message += `${index + 1}. ${rec}\n`;
+        });
+      }
+
+      Alert.alert('Detailed MBI Analysis', message);
+    };
+
     return (
-      <View style={styles.riskCard}>
+      <TouchableOpacity style={styles.riskCard} onPress={showDetailedBreakdown}>
         <View style={styles.riskHeader}>
           <View style={styles.riskTitleContainer}>
             <Ionicons name="shield-checkmark" size={20} color={getRiskColor(burnoutRisk.riskLevel)} />
-            <Text style={styles.riskTitle}>Burnout Risk</Text>
+            <Text style={styles.riskTitle}>MBI Burnout Risk</Text>
           </View>
           {burnoutRisk.trend && (
             <View style={styles.trendContainer}>
@@ -398,16 +416,31 @@ export default function ProfileScreen({ navigation }: any) {
             {burnoutRisk.riskLevel}
           </Text>
           {burnoutRisk.riskLevel !== 'No Data' && burnoutRisk.riskLevel !== 'Error' && (
-            <Text style={styles.riskScore}>Score: {burnoutRisk.combinedScore}/10</Text>
+            <Text style={styles.riskScore}>MBI Score: {burnoutRisk.combinedScore}/10</Text>
           )}
           {burnoutRisk.riskLevel === 'No Data' && (
             <Text style={styles.riskScore}>Complete an MBI assessment to see your risk</Text>
           )}
           {burnoutRisk.riskLevel === 'Error' && (
-            <Text style={styles.riskScore}>Unable to load data</Text>
+            <Text style={styles.riskScore}>Unable to load MBI data</Text>
+          )}
+          {burnoutRisk.lastAssessmentDate && (
+            <Text style={styles.lastAssessment}>
+              Last MBI: {new Date(burnoutRisk.lastAssessmentDate).toLocaleDateString()}
+            </Text>
           )}
         </View>
-      </View>
+        {burnoutRisk.breakdown && (
+          <View style={styles.dimensionPreview}>
+            <Text style={styles.dimensionText}>
+              EE: {burnoutRisk.breakdown.emotionalExhaustion.toFixed(1)} • 
+              DP: {burnoutRisk.breakdown.depersonalization.toFixed(1)} • 
+              PA: {burnoutRisk.breakdown.personalAccomplishment.toFixed(1)}
+            </Text>
+          </View>
+        )}
+        <Text style={styles.tapHint}>Tap for detailed breakdown</Text>
+      </TouchableOpacity>
     );
   };
 
@@ -773,6 +806,31 @@ const styles = StyleSheet.create({
   riskScore: {
     fontSize: 14,
     color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  lastAssessment: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+  },
+  dimensionPreview: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
+    alignItems: 'center',
+  },
+  dimensionText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontFamily: 'monospace',
+  },
+  tapHint: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 8,
+    fontStyle: 'italic',
   },
   statsRow: {
     flexDirection: 'row',
