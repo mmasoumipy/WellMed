@@ -21,9 +21,7 @@
 - [Architecture](#architecture)
 - [Installation](#installation)
 - [API Documentation](#api-documentation)
-- [Screenshots](#screenshots)
-- [Contributing](#contributing)
-- [License](#license)
+<!-- - [Screenshots](#screenshots) -->
 
 ## 🩺 Overview
 
