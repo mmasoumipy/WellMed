@@ -11,9 +11,11 @@ import {
   ActivityIndicator
 } from 'react-native';
 import { colors } from '../constants/colors';
+import WellnessStreakCard from '../components/WellnessStreakCard';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { calculateBurnoutRisk, getMBIDimensionInterpretation } from '../utils/burnoutRisk';
+import HealthDataDisplay from '../components/HealthDataDisplay';
 import api from '../api/api';
 
 interface HistoryData {
@@ -590,6 +592,16 @@ export default function ProfileScreen({ navigation }: any) {
     );
   };
 
+  const renderHealthData = () => (
+    <View style={styles.healthCard}>
+      <View style={styles.healthHeader}>
+        <Ionicons name="fitness-outline" size={20} color={colors.thirdary} />
+        <Text style={styles.healthTitle}>Health Data</Text>
+      </View>
+      <HealthDataDisplay />
+    </View>
+  );
+
   const renderQuickActions = () => (
     <View style={styles.actionsCard}>
       <Text style={styles.actionsTitle}>Quick Actions</Text>
@@ -663,8 +675,12 @@ export default function ProfileScreen({ navigation }: any) {
         {renderStatsOverview()}
       </View>
 
+
       {/* Activity History */}
       {renderActivityHistory()}
+
+      {/* Health Data */}
+      {renderHealthData()}
 
       {/* Quick Actions */}
       {renderQuickActions()}
@@ -1063,5 +1079,28 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: 20,
+  },
+  healthCard: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+    padding: 20,
+    backgroundColor: colors.background,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  healthHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  healthTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginLeft: 8,
   },
 });
