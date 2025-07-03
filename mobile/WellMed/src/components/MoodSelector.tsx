@@ -1,272 +1,221 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Animated, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Animated } from 'react-native';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 import { colors } from '../constants/colors';
 
-const { width } = Dimensions.get('window');
-
-const moods = [
-  { 
-    label: 'Excellent', 
-    value: 'Excellent', 
-    emoji: '😄', 
-    color: colors.excellent,
-    gradient: ['#7ED321', '#9AE34B'],
-    description: 'Feeling fantastic!'
-  },
-  { 
-    label: 'Good', 
-    value: 'Good', 
-    emoji: '🙂', 
-    color: colors.good,
-    gradient: ['#9AE34B', '#F5A623'],
-    description: 'Pretty good day'
-  },
-  { 
-    label: 'Okay', 
-    value: 'Okay', 
-    emoji: '😐', 
-    color: colors.okay,
-    gradient: ['#F5A623', '#FF9500'],
-    description: 'Doing alright'
-  },
-  { 
-    label: 'Stressed', 
-    value: 'Stressed', 
-    emoji: '😫', 
-    color: colors.stressed,
-    gradient: ['#FF9500', '#FF6B35'],
-    description: 'Feeling overwhelmed'
-  },
-  { 
-    label: 'Tired', 
-    value: 'Tired', 
-    emoji: '😴', 
-    color: colors.tired,
-    gradient: ['#BD10E0', '#8B5CF6'],
-    description: 'Need some rest'
-  },
-  { 
-    label: 'Anxious', 
-    value: 'Anxious', 
-    emoji: '😰', 
-    color: colors.anxious,
-    gradient: ['#D0021B', '#FF4757'],
-    description: 'Feeling worried'
-  },
-];
-
-interface MoodSelectorProps {
-  onSelect: (mood: any) => void;
-  selectedMood?: string;
+interface MoodOption {
+  emoji: string;
+  label: string;
+  value: string;
+  color: string;
 }
 
-export default function MoodSelector({ onSelect, selectedMood }: MoodSelectorProps) {
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-  const [scaleValues] = useState(moods.map(() => new Animated.Value(1)));
+interface CompactMoodTrackerProps {
+  onMoodSelect: (mood: MoodOption) => void;
+  onViewHistory: () => void;
+}
 
-  const handleMoodSelect = (mood: any, index: number) => {
-    setSelectedIndex(index);
+const moods: MoodOption[] = [
+  { emoji: '😄', label: 'Excellent', value: 'Excellent', color: colors.excellent },
+  { emoji: '🙂', label: 'Good', value: 'Good', color: colors.good },
+  { emoji: '😐', label: 'Okay', value: 'Okay', color: colors.okay },
+  { emoji: '😫', label: 'Stressed', value: 'Stressed', color: colors.stressed },
+  { emoji: '😴', label: 'Tired', value: 'Tired', color: colors.tired },
+  { emoji: '😰', label: 'Anxious', value: 'Anxious', color: colors.anxious },
+];
+
+export default function CompactMoodTracker({ onMoodSelect, onViewHistory }: CompactMoodTrackerProps) {
+  const [selectedMood, setSelectedMood] = useState<string | null>(null);
+  const [animatedValues] = useState(
+    moods.map(() => new Animated.Value(1))
+  );
+
+  const handleMoodPress = (mood: MoodOption, index: number) => {
+    setSelectedMood(mood.value);
     
-    // Animate the selected mood
+    // Animate the pressed mood
     Animated.sequence([
-      Animated.timing(scaleValues[index], {
-        toValue: 1.2,
+      Animated.timing(animatedValues[index], {
+        toValue: 1.3,
         duration: 150,
         useNativeDriver: true,
       }),
-      Animated.timing(scaleValues[index], {
+      Animated.timing(animatedValues[index], {
         toValue: 1,
         duration: 150,
         useNativeDriver: true,
       }),
     ]).start();
 
-    // Call the onSelect callback with additional timestamp
-    onSelect({
-      ...mood,
-      timestamp: new Date().toISOString(),
-      selectedAt: new Date(),
-    });
-  };
-
-  const renderMoodOption = (mood: any, index: number) => {
-    const isSelected = selectedIndex === index || selectedMood === mood.value;
+    // Call the parent handler
+    onMoodSelect(mood);
     
-    return (
-      <Animated.View
-        key={index}
-        style={[
-          styles.moodContainer,
-          { transform: [{ scale: scaleValues[index] }] }
-        ]}
-      >
-        <TouchableOpacity
-          style={[
-            styles.moodButton,
-            { 
-              backgroundColor: mood.color,
-              borderWidth: isSelected ? 3 : 0,
-              borderColor: isSelected ? colors.textPrimary : 'transparent',
-            }
-          ]}
-          onPress={() => handleMoodSelect(mood, index)}
-          activeOpacity={0.8}
-        >
-          <View style={styles.emojiContainer}>
-            <Text style={styles.moodEmoji}>{mood.emoji}</Text>
-          </View>
-          
-          {isSelected && (
-            <View style={styles.selectionIndicator}>
-              <View style={styles.checkmark}>
-                <Text style={styles.checkmarkText}>✓</Text>
-              </View>
-            </View>
-          )}
-        </TouchableOpacity>
-        
-        <View style={styles.moodInfo}>
-          <Text style={[
-            styles.moodLabel,
-            { color: isSelected ? mood.color : colors.textPrimary }
-          ]}>
-            {mood.label}
-          </Text>
-          <Text style={styles.moodDescription}>
-            {mood.description}
-          </Text>
-        </View>
-      </Animated.View>
-    );
+    // Reset selection after animation
+    setTimeout(() => setSelectedMood(null), 2000);
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>How are you feeling?</Text>
-      <Text style={styles.subtitle}>Tap the mood that best describes how you feel right now</Text>
-      
-      <View style={styles.moodGrid}>
-        {moods.map((mood, index) => renderMoodOption(mood, index))}
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.titleContainer}>
+          <Ionicons name="happy-outline" size={20} color={colors.primary} />
+          <Text style={styles.title}>Quick Mood Check</Text>
+        </View>
+        <TouchableOpacity 
+          style={styles.historyButton}
+          onPress={onViewHistory}
+        >
+          <Ionicons name="analytics-outline" size={16} color={colors.primary} />
+          <Text style={styles.historyText}>History</Text>
+        </TouchableOpacity>
       </View>
-      
-      {selectedIndex !== null && (
-        <Animated.View style={styles.confirmationMessage}>
-          <Text style={styles.confirmationText}>
-            Great! Your mood has been recorded 🎉
-          </Text>
-        </Animated.View>
-      )}
+
+      {/* Compact Mood Grid */}
+      <View style={styles.moodGrid}>
+        {moods.map((mood, index) => (
+          <Animated.View
+            key={index}
+            style={[
+              styles.moodButtonWrapper,
+              { transform: [{ scale: animatedValues[index] }] }
+            ]}
+          >
+            <TouchableOpacity
+              style={[
+                styles.moodButton,
+                {
+                  backgroundColor: selectedMood === mood.value 
+                    ? mood.color 
+                    : mood.color + '15',
+                  borderColor: selectedMood === mood.value 
+                    ? mood.color 
+                    : 'transparent',
+                  borderWidth: selectedMood === mood.value ? 2 : 0,
+                }
+              ]}
+              onPress={() => handleMoodPress(mood, index)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.moodEmoji}>{mood.emoji}</Text>
+              <Text style={[
+                styles.moodLabel,
+                { 
+                  color: selectedMood === mood.value ? 'white' : mood.color,
+                  fontWeight: selectedMood === mood.value ? 'bold' : '500'
+                }
+              ]}>
+                {mood.label}
+              </Text>
+              
+              {selectedMood === mood.value && (
+                <View style={styles.checkmark}>
+                  <Ionicons name="checkmark-circle" size={16} color="white" />
+                </View>
+              )}
+            </TouchableOpacity>
+          </Animated.View>
+        ))}
+      </View>
+
+      {/* Quick Stats or Recent Mood */}
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>
+          Tap an emoji to quickly log your current mood
+        </Text>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    backgroundColor: colors.background,
+    borderRadius: 16,
+    padding: 16,
+    marginHorizontal: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 10,
+    marginBottom: 16,
+  },
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   title: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '600',
     color: colors.textPrimary,
-    marginBottom: 8,
-    textAlign: 'center',
+    marginLeft: 8,
   },
-  subtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: 20,
-    paddingHorizontal: 20,
+  historyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    backgroundColor: colors.primary + '10',
+    borderRadius: 8,
+  },
+  historyText: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '500',
+    marginLeft: 4,
   },
   moodGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 16,
-    paddingHorizontal: 10,
+    justifyContent: 'space-between',
+    marginBottom: 12,
   },
-  moodContainer: {
-    alignItems: 'center',
-    width: (width - 80) / 3, // 3 moods per row with spacing
-    marginBottom: 20,
+  moodButtonWrapper: {
+    width: '30%',
+    marginBottom: 8,
   },
   moodButton: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    aspectRatio: 1,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
     position: 'relative',
-  },
-  emojiContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingVertical: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   moodEmoji: {
-    fontSize: 32,
-    textAlign: 'center',
-  },
-  selectionIndicator: {
-    position: 'absolute',
-    top: -8,
-    right: -8,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: colors.success,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  checkmark: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkmarkText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: 'white',
-  },
-  moodInfo: {
-    marginTop: 12,
-    alignItems: 'center',
-  },
-  moodLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    textAlign: 'center',
+    fontSize: 20,
     marginBottom: 4,
   },
-  moodDescription: {
-    fontSize: 11,
+  moodLabel: {
+    fontSize: 10,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  checkmark: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+  },
+  footer: {
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  footerText: {
+    fontSize: 12,
     color: colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 14,
-  },
-  confirmationMessage: {
-    marginTop: 20,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    backgroundColor: colors.success + '15',
-    borderRadius: 25,
-    borderWidth: 1,
-    borderColor: colors.success + '30',
-  },
-  confirmationText: {
-    fontSize: 14,
-    color: colors.success,
-    fontWeight: '600',
-    textAlign: 'center',
+    fontStyle: 'italic',
   },
 });
