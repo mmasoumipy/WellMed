@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Animated, Image } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { colors } from '../constants/colors';
 
 interface MoodOption {
-  emoji: string;
+  image: any; // Image source
   label: string;
   value: string;
   color: string;
@@ -16,12 +16,42 @@ interface CompactMoodTrackerProps {
 }
 
 const moods: MoodOption[] = [
-  { emoji: '😄', label: 'Excellent', value: 'Excellent', color: colors.excellent },
-  { emoji: '🙂', label: 'Good', value: 'Good', color: colors.good },
-  { emoji: '😐', label: 'Okay', value: 'Okay', color: colors.okay },
-  { emoji: '😫', label: 'Stressed', value: 'Stressed', color: colors.stressed },
-  { emoji: '😴', label: 'Tired', value: 'Tired', color: colors.tired },
-  { emoji: '😰', label: 'Anxious', value: 'Anxious', color: colors.anxious },
+  { 
+    image: require('../../assets/moods/content.png'), 
+    label: 'Excellent', 
+    value: 'Excellent', 
+    color: colors.excellent 
+  },
+  { 
+    image: require('../../assets/moods/happy.png'), 
+    label: 'Good', 
+    value: 'Good', 
+    color: colors.good 
+  },
+  { 
+    image: require('../../assets/moods/neutral.png'), 
+    label: 'Okay', 
+    value: 'Okay', 
+    color: colors.okay 
+  },
+  { 
+    image: require('../../assets/moods/angry.png'), 
+    label: 'Stressed', 
+    value: 'Stressed', 
+    color: colors.stressed 
+  },
+  { 
+    image: require('../../assets/moods/tired.png'), 
+    label: 'Tired', 
+    value: 'Tired', 
+    color: colors.tired 
+  },
+  { 
+    image: require('../../assets/moods/sad.png'), 
+    label: 'Anxious', 
+    value: 'Anxious', 
+    color: colors.anxious 
+  },
 ];
 
 export default function CompactMoodTracker({ onMoodSelect, onViewHistory }: CompactMoodTrackerProps) {
@@ -86,22 +116,29 @@ export default function CompactMoodTracker({ onMoodSelect, onViewHistory }: Comp
                 styles.moodButton,
                 {
                   backgroundColor: selectedMood === mood.value 
-                    ? mood.color 
-                    : mood.color + '15',
+                    ? mood.color + '20'
+                    : colors.background,
                   borderColor: selectedMood === mood.value 
                     ? mood.color 
-                    : 'transparent',
-                  borderWidth: selectedMood === mood.value ? 2 : 0,
+                    : colors.divider,
+                  borderWidth: selectedMood === mood.value ? 2 : 1,
                 }
               ]}
               onPress={() => handleMoodPress(mood, index)}
               activeOpacity={0.7}
             >
-              <Text style={styles.moodEmoji}>{mood.emoji}</Text>
+              <Image 
+                source={mood.image} 
+                style={[
+                  styles.moodImage,
+                  selectedMood === mood.value && styles.selectedMoodImage
+                ]}
+                resizeMode="contain"
+              />
               <Text style={[
                 styles.moodLabel,
                 { 
-                  color: selectedMood === mood.value ? 'white' : mood.color,
+                  color: selectedMood === mood.value ? mood.color : colors.textPrimary,
                   fontWeight: selectedMood === mood.value ? 'bold' : '500'
                 }
               ]}>
@@ -109,8 +146,8 @@ export default function CompactMoodTracker({ onMoodSelect, onViewHistory }: Comp
               </Text>
               
               {selectedMood === mood.value && (
-                <View style={styles.checkmark}>
-                  <Ionicons name="checkmark-circle" size={16} color="white" />
+                <View style={[styles.checkmark, { backgroundColor: mood.color }]}>
+                  <Ionicons name="checkmark" size={12} color="white" />
                 </View>
               )}
             </TouchableOpacity>
@@ -121,7 +158,7 @@ export default function CompactMoodTracker({ onMoodSelect, onViewHistory }: Comp
       {/* Quick Stats or Recent Mood */}
       <View style={styles.footer}>
         <Text style={styles.footerText}>
-          Tap an emoji to quickly log your current mood
+          Tap a mood to quickly log how you're feeling
         </Text>
       </View>
     </View>
@@ -194,9 +231,14 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
-  moodEmoji: {
-    fontSize: 20,
-    marginBottom: 4,
+  moodImage: {
+    width: 32,
+    height: 32,
+    marginBottom: 6,
+  },
+  selectedMoodImage: {
+    width: 36,
+    height: 36,
   },
   moodLabel: {
     fontSize: 10,
@@ -205,8 +247,13 @@ const styles = StyleSheet.create({
   },
   checkmark: {
     position: 'absolute',
-    top: 2,
-    right: 2,
+    top: 4,
+    right: 4,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   footer: {
     alignItems: 'center',
