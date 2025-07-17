@@ -7,8 +7,32 @@ services:
       - "8080:8080"
     depends_on:
       - db
+      - ollama
     environment:
       DATABASE_URL: postgresql://myuser:mypassword@db:5432/wellmed_db
+      OLLAMA_URL: http://ollama:11434
+      OLLAMA_MODEL: gemma3:12b
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_KEEP_ALIVE=5m  # Keep model loaded longer due to size
+    deploy:
+      resources:
+        limits:
+          memory: 16G  # Gemma3:12b needs more memory
+        reservations:
+          memory: 8G
+    networks:
+      - wellmed-network
+    # Optional: Add GPU support if available
+    # runtime: nvidia
+    # environment:
+    #   - NVIDIA_VISIBLE_DEVICES=all
 
   db:
     image: postgres:15

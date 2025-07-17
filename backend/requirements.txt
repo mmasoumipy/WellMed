@@ -12,4 +12,3 @@ httpx
 python-jose
 python-multipart
 passlib
-
