@@ -3,13 +3,19 @@ import React
 import React_RCTAppDelegate
 import ReactAppDependencyProvider
 
+/// <#Description#>
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
   var window: UIWindow?
 
   var reactNativeDelegate: ReactNativeDelegate?
   var reactNativeFactory: RCTReactNativeFactory?
-
+  
+  /// <#Description#>
+  /// - Parameters:
+  ///   - application: <#application description#>
+  ///   - launchOptions: <#launchOptions description#>
+  /// - Returns: <#description#>
   func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
