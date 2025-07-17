@@ -1,177 +1,115 @@
-# backend/app/services/ollama_service.py
-import httpx
-import json
 import os
-from typing import List, Dict, Optional
+from typing import List, Dict, Any
+from app.services.ollama_service import ollama_service
+from sqlalchemy.orm import Session
+from uuid import UUID
+import json
 import logging
 
 logger = logging.getLogger(__name__)
 
-class OllamaService:
-    def __init__(self):
-        self.base_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
-        self.model_name = os.getenv("OLLAMA_MODEL", "gemma3:12b")  # Using Gemma3:12b
-        self.timeout = 120.0  # Increased timeout for larger model
+async def generate_ai_response(message_history: List[Dict[str, str]], user_id: UUID = None, db: Session = None) -> str:
+    """
+    Generate AI response using Ollama with user context
+    
+    Args:
+        message_history: List of message dictionaries with 'role' and 'content'
+        user_id: User ID for context
+        db: Database session for user data
+    
+    Returns:
+        str: The generated AI response
+    """
+    
+    # Build user context if available
+    context = await _build_user_context(user_id, db) if user_id and db else ""
+    
+    # Generate response using Ollama
+    response = await ollama_service.generate_response(message_history, context)
+    
+    return response
+
+async def analyze_journal_entry(journal_text: str, user_id: UUID = None, db: Session = None) -> str:
+    """
+    Analyze journal entry using AI
+    
+    Args:
+        journal_text: The journal entry content
+        user_id: User ID for context
+        db: Database session
+    
+    Returns:
+        Analysis summary
+    """
+    
+    # Build user context for better analysis
+    context = await _build_user_context(user_id, db) if user_id and db else ""
+    
+    # Use Ollama to analyze the journal entry
+    analysis = await ollama_service.analyze_journal_entry(journal_text, context)
+    
+    return analysis
+
+async def _build_user_context(user_id: UUID, db: Session) -> str:
+    """Build contextual information about the user for better AI responses"""
+    
+    try:
+        # Import here to avoid circular imports
+        from app import models
+        from app.crud import get_user_moods, get_mbi_assessments_by_user, get_all_micro_assessment
         
-    async def generate_response(self, messages: List[Dict[str, str]], context: str = "") -> str:
-        """
-        Generate AI response using Ollama
+        context_parts = []
         
-        Args:
-            messages: List of conversation messages
-            context: Additional context (like journal analysis, user profile, etc.)
+        # Get user basic info
+        user = db.query(models.User).filter(models.User.id == user_id).first()
+        if user:
+            context_parts.append(f"User specialty: {user.specialty or 'General'}")
         
-        Returns:
-            Generated response string
-        """
+        # Get recent mood trends
         try:
-            # Build the prompt with context
-            prompt = self._build_prompt(messages, context)
-            
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.post(
-                    f"{self.base_url}/api/generate",
-                    json={
-                        "model": self.model_name,
-                        "prompt": prompt,
-                        "stream": False,
-                        "options": {
-                            "temperature": 0.7,
-                            "num_predict": 500,  # Gemma3 uses num_predict instead of max_tokens
-                            "top_p": 0.9,
-                            "top_k": 40,
-                            "repeat_penalty": 1.1
-                        }
-                    }
-                )
-                
-                if response.status_code == 200:
-                    result = response.json()
-                    return result.get("response", "I'm sorry, I couldn't generate a response.")
-                else:
-                    logger.error(f"Ollama API error: {response.status_code}")
-                    return "I'm experiencing technical difficulties. Please try again later."
-                    
-        except httpx.TimeoutException:
-            logger.error("Ollama request timed out")
-            return "I'm taking longer than usual to respond. Please try again."
+            moods = get_user_moods(db, user_id)
+            if moods:
+                recent_moods = [mood.mood for mood in moods[-5:]]  # Last 5 moods
+                context_parts.append(f"Recent mood patterns: {', '.join(recent_moods)}")
         except Exception as e:
-            logger.error(f"Ollama service error: {str(e)}")
-            return "I'm experiencing technical difficulties. Please try again later."
-    
-    async def analyze_journal_entry(self, journal_text: str, user_context: str = "") -> str:
-        """
-        Analyze journal entry for emotional content, themes, and insights
+            logger.warning(f"Error getting moods: {e}")
         
-        Args:
-            journal_text: The journal entry text
-            user_context: User profile context (specialty, previous entries, etc.)
-        
-        Returns:
-            Analysis summary
-        """
+        # Get latest MBI assessment if available
         try:
-            prompt = self._build_journal_analysis_prompt(journal_text, user_context)
-            
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.post(
-                    f"{self.base_url}/api/generate",
-                    json={
-                        "model": self.model_name,
-                        "prompt": prompt,
-                        "stream": False,
-                        "options": {
-                            "temperature": 0.3,  # Lower temperature for more consistent analysis
-                            "num_predict": 300,  # Gemma3 parameter
-                            "top_p": 0.8,
-                            "top_k": 30,
-                            "repeat_penalty": 1.05
-                        }
-                    }
+            mbi_assessments = get_mbi_assessments_by_user(db, user_id)
+            if mbi_assessments:
+                latest_mbi = mbi_assessments[0]
+                risk_level = _calculate_burnout_risk_level(
+                    latest_mbi.emotional_exhaustion,
+                    latest_mbi.depersonalization,
+                    latest_mbi.personal_accomplishment
                 )
-                
-                if response.status_code == 200:
-                    result = response.json()
-                    return result.get("response", "Unable to analyze this entry.")
-                else:
-                    return "Analysis temporarily unavailable."
-                    
+                context_parts.append(f"Current burnout risk: {risk_level}")
         except Exception as e:
-            logger.error(f"Journal analysis error: {str(e)}")
-            return "Analysis temporarily unavailable."
-    
-    def _build_prompt(self, messages: List[Dict[str, str]], context: str) -> str:
-        """Build conversation prompt optimized for Gemma3"""
+            logger.warning(f"Error getting MBI assessments: {e}")
         
-        system_prompt = """You are Carely, a compassionate AI assistant designed to support healthcare professionals with burnout and stress management.
-
-Your role:
-- Provide empathetic, understanding responses
-- Focus on mental health and wellbeing for healthcare workers
-- Offer evidence-based advice and coping strategies
-- Recognize burnout symptoms and stress indicators
-- Encourage professional help when appropriate
-- Keep responses helpful but concise (2-3 paragraphs max)
-- Never provide medical diagnoses or treatment
-- Maintain a supportive, professional tone
-
-Important: You're speaking with a healthcare professional who may be experiencing work-related stress or burnout."""
-
-        if context:
-            system_prompt += f"\n\nUser Context: {context}"
-        
-        # Format for Gemma3 (uses <start_of_turn> and <end_of_turn> tokens)
-        conversation = f"<start_of_turn>system\n{system_prompt}<end_of_turn>\n"
-        
-        for message in messages[-10:]:  # Keep last 10 messages for context
-            role = "user" if message["role"] == "user" else "model"
-            conversation += f"<start_of_turn>{role}\n{message['content']}<end_of_turn>\n"
-        
-        conversation += "<start_of_turn>model\n"
-        
-        return conversation
-    
-    def _build_journal_analysis_prompt(self, journal_text: str, user_context: str) -> str:
-        """Build journal analysis prompt optimized for Gemma3"""
-        
-        prompt = f"""<start_of_turn>system
-You are an AI assistant that analyzes journal entries from healthcare professionals to provide supportive insights about emotional wellbeing and stress patterns.
-
-Analyze the journal entry and provide:
-1. Emotional tone (positive/neutral/negative/mixed)
-2. Key themes or concerns
-3. Stress indicators (if present)
-4. Supportive observations
-5. Self-care recommendations
-
-Keep analysis professional, supportive, and concise (2-3 sentences maximum).
-<end_of_turn>
-
-<start_of_turn>user
-{f"User context: {user_context}" if user_context else ""}
-
-Journal entry to analyze:
-{journal_text}
-
-Please provide your analysis:
-<end_of_turn>
-
-<start_of_turn>model
-"""
-        
-        return prompt
-    
-    async def check_model_availability(self) -> bool:
-        """Check if Ollama model is available"""
+        # Get recent micro assessments
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.get(f"{self.base_url}/api/tags")
-                if response.status_code == 200:
-                    models = response.json().get("models", [])
-                    return any(model.get("name", "").startswith(self.model_name) for model in models)
-                return False
-        except Exception:
-            return False
+            micro_assessments = get_all_micro_assessment(db, user_id)
+            if micro_assessments:
+                latest_micro = micro_assessments[0]
+                context_parts.append(f"Recent stress level: {latest_micro.stress_level}/5")
+                context_parts.append(f"Recent fatigue level: {latest_micro.fatigue_level}/5")
+        except Exception as e:
+            logger.warning(f"Error getting micro assessments: {e}")
+        
+        return " | ".join(context_parts) if context_parts else ""
+        
+    except Exception as e:
+        logger.error(f"Error building user context: {e}")
+        return ""
 
-# Initialize service
-ollama_service = OllamaService()
+def _calculate_burnout_risk_level(emotional_exhaustion: int, depersonalization: int, personal_accomplishment: int) -> str:
+    """Calculate simple burnout risk level"""
+    # Simplified calculation - you can use your existing burnout risk function
+    if emotional_exhaustion >= 27 or depersonalization >= 10:
+        return "High"
+    elif emotional_exhaustion >= 17 or depersonalization >= 6:
+        return "Medium"
+    else:
+        return "Low"

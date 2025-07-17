@@ -1,4 +1,3 @@
-# backend/app/services/ollama_service.py
 import httpx
 import json
 import os
@@ -28,6 +27,8 @@ class OllamaService:
             # Build the prompt with context
             prompt = self._build_prompt(messages, context)
             
+            logger.info(f"Generating response with Ollama at {self.base_url}")
+            
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.post(
                     f"{self.base_url}/api/generate",
@@ -45,19 +46,26 @@ class OllamaService:
                     }
                 )
                 
+                logger.info(f"Ollama response status: {response.status_code}")
+                
                 if response.status_code == 200:
                     result = response.json()
-                    return result.get("response", "I'm sorry, I couldn't generate a response.")
+                    generated_text = result.get("response", "I'm sorry, I couldn't generate a response.")
+                    logger.info(f"Generated response length: {len(generated_text)}")
+                    return generated_text
                 else:
-                    logger.error(f"Ollama API error: {response.status_code}")
-                    return "I'm experiencing technical difficulties. Please try again later."
+                    logger.error(f"Ollama API error: {response.status_code} - {response.text}")
+                    return f"I'm experiencing technical difficulties (HTTP {response.status_code}). Please try again later."
                     
+        except httpx.ConnectError:
+            logger.error(f"Cannot connect to Ollama at {self.base_url}")
+            return "I'm having trouble connecting to my AI service. Please make sure Ollama is running and try again."
         except httpx.TimeoutException:
             logger.error("Ollama request timed out")
             return "I'm taking longer than usual to respond. Please try again."
         except Exception as e:
             logger.error(f"Ollama service error: {str(e)}")
-            return "I'm experiencing technical difficulties. Please try again later."
+            return f"I'm experiencing technical difficulties: {str(e)}"
     
     async def analyze_journal_entry(self, journal_text: str, user_context: str = "") -> str:
         """
