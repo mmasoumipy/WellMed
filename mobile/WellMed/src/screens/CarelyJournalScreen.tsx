@@ -202,72 +202,71 @@ export default function CarelyJournalScreen({ navigation }: any) {
     }, 100);
 
     try {
-      // Send message to backend
-      const response = await api.post('/chatbot/messages/', {
+      // Send message to backend using the sync endpoint
+      console.log('Calling sync message endpoint...');
+      const response = await api.post('/chatbot/send-sync-message', {
         conversation_id: currentConversationId,
         content: userMessage.content,
         role: 'user',
       });
 
-      console.log('Message sent successfully:', response.data);
+      console.log('Sync response received:', response.data);
 
-      // Reset poll attempts counter
-      (pollForNewMessages as any).attempts = 0;
-
-      // Start polling for AI response with a longer initial delay
-      setTimeout(() => {
-        pollForNewMessages();
-      }, 3000); // Wait 3 seconds before first poll
+      if (response.data && response.data.ai_message) {
+        // Add the AI response immediately
+        setMessages(prev => [...prev, response.data.ai_message]);
+        setIsTyping(false);
+        
+        // Scroll to bottom to show AI response
+        setTimeout(() => {
+          scrollViewRef.current?.scrollToEnd({ animated: true });
+        }, 200);
+        
+        console.log('AI message added to UI');
+      } else {
+        console.log('No AI message in response, falling back to polling...');
+        // Fallback to simple polling if sync didn't work
+        setTimeout(() => {
+          simplePolling();
+        }, 2000);
+      }
 
     } catch (error) {
       console.error('Error sending message:', error);
       setIsTyping(false);
+      
+      // Try to load messages as fallback
+      setTimeout(() => {
+        loadConversationMessages();
+      }, 3000);
+      
       Alert.alert('Error', 'Failed to send message. Please try again.');
     }
   };
 
-  const pollForNewMessages = async () => {
-    if (!currentConversationId) return;
-
-    try {
-      const response = await api.get(`/chatbot/messages/${currentConversationId}`);
-      const allMessages = response.data;
+  // Simple polling as fallback
+  const simplePolling = async () => {
+    let attempts = 0;
+    const maxAttempts = 10;
+    
+    const poll = async () => {
+      attempts++;
+      console.log(`Polling attempt ${attempts}/${maxAttempts}`);
       
-      console.log('Polling - Current messages count:', messages.length);
-      console.log('Polling - Server messages count:', allMessages.length);
-      
-      // Check if there are new messages
-      if (allMessages.length > messages.length) {
-        console.log('New messages found, updating UI');
-        setMessages(allMessages);
+      try {
+        await loadConversationMessages();
         setIsTyping(false);
-        
-        // Scroll to bottom
-        setTimeout(() => {
-          scrollViewRef.current?.scrollToEnd({ animated: true });
-        }, 100);
-      } else if (allMessages.length === messages.length) {
-        // Still waiting for AI response, continue polling but with limit
-        const pollAttempts = (pollForNewMessages as any).attempts || 0;
-        if (pollAttempts < 10) { // Max 10 attempts (20 seconds)
-          (pollForNewMessages as any).attempts = pollAttempts + 1;
-          console.log('Still waiting for AI response, attempt:', pollAttempts + 1);
-          setTimeout(() => {
-            pollForNewMessages();
-          }, 2000);
+      } catch (error) {
+        console.error('Polling error:', error);
+        if (attempts < maxAttempts) {
+          setTimeout(poll, 3000);
         } else {
-          console.log('Polling timeout, stopping');
           setIsTyping(false);
-          // Reset attempts for next time
-          (pollForNewMessages as any).attempts = 0;
         }
       }
-    } catch (error) {
-      console.error('Error polling for messages:', error);
-      setIsTyping(false);
-      // Reset attempts on error
-      (pollForNewMessages as any).attempts = 0;
-    }
+    };
+    
+    poll();
   };
 
   const saveJournalEntry = async () => {
@@ -302,7 +301,7 @@ export default function CarelyJournalScreen({ navigation }: any) {
       
       Alert.alert(
         'Journal Saved! 📝', 
-        'Your journal entry has been saved and analyzed by Carely.',
+        'Your journal entry has been saved successfully! Carely is analyzing it in the background - refresh to see the insights.',
         [{ text: 'Great!', style: 'default' }]
       );
 
@@ -320,6 +319,12 @@ export default function CarelyJournalScreen({ navigation }: any) {
   const onRefresh = async () => {
     setRefreshing(true);
     await initializeData();
+    
+    // Reload current conversation messages if in Carely tab
+    if (activeTab === 'carely' && currentConversationId) {
+      await loadConversationMessages();
+    }
+    
     setRefreshing(false);
   };
 
@@ -367,18 +372,33 @@ export default function CarelyJournalScreen({ navigation }: any) {
       key={entry.id} 
       style={styles.journalEntryCard}
       onPress={() => {
-        Alert.alert(
-          'Carely\'s Analysis',
-          entry.analysis,
-          [{ text: 'Thank you', style: 'default' }]
-        );
+        if (entry.analysis === "Your journal entry is being analyzed by Carely. Refresh to see the insights!") {
+          Alert.alert(
+            'Analysis in Progress',
+            'Carely is still analyzing this entry. Please refresh or check back in a moment.',
+            [
+              { text: 'Refresh', onPress: () => loadJournalEntries() },
+              { text: 'OK', style: 'cancel' }
+            ]
+          );
+        } else {
+          Alert.alert(
+            'Carely\'s Analysis',
+            entry.analysis,
+            [{ text: 'Thank you', style: 'default' }]
+          );
+        }
       }}
     >
       <View style={styles.journalEntryHeader}>
         <Text style={styles.journalEntryDate}>
           {new Date(entry.created_at).toLocaleDateString()}
         </Text>
-        <Ionicons name="analytics" size={16} color={colors.primary} />
+        {entry.analysis === "Your journal entry is being analyzed by Carely. Refresh to see the insights!" ? (
+          <ActivityIndicator size="small" color={colors.primary} />
+        ) : (
+          <Ionicons name="analytics" size={16} color={colors.primary} />
+        )}
       </View>
       <Text style={styles.journalEntryPreview} numberOfLines={4}>
         {entry.text_content}
@@ -387,7 +407,12 @@ export default function CarelyJournalScreen({ navigation }: any) {
         <Text style={styles.journalEntryTime}>
           {new Date(entry.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </Text>
-        <Text style={styles.analysisHint}>Tap to see Carely's insights</Text>
+        <Text style={styles.analysisHint}>
+          {entry.analysis === "Your journal entry is being analyzed by Carely. Refresh to see the insights!" 
+            ? "Analysis in progress..." 
+            : "Tap to see Carely's insights"
+          }
+        </Text>
       </View>
     </TouchableOpacity>
   );
@@ -544,7 +569,7 @@ export default function CarelyJournalScreen({ navigation }: any) {
             </TouchableOpacity>
           </View>
         ) : (
-          journalEntries.map(renderJournalEntry)
+          journalEntries.map((entry) => renderJournalEntry(entry))
         )}
       </ScrollView>
     </View>
@@ -702,19 +727,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   
-  // Loading states
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: colors.textSecondary,
-  },
-  
   // Carely Tab Styles
   carelyHeader: {
     flexDirection: 'row',
@@ -791,7 +803,7 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 4,
   },
   aiBubble: {
-    backgroundColor: colors.cardBackground,
+    backgroundColor: colors.AIBubbleBackground,
     borderBottomLeftRadius: 4,
   },
   messageText: {
@@ -914,15 +926,10 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
-  journalTitleInput: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
+  journalFormTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
     color: colors.textPrimary,
-    backgroundColor: colors.backgroundPrimary,
     marginBottom: 12,
   },
   journalContentInput: {
@@ -960,14 +967,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  journalSaveButtonDisabled: {
+    backgroundColor: colors.divider,
+  },
   journalSaveText: {
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
-  },
-  buttonDisabled: {
-    backgroundColor: colors.divider,
   },
   journalEntriesContainer: {
     flex: 1,
@@ -990,12 +997,6 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 8,
   },
-  journalEntryTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: colors.textPrimary,
-    flex: 1,
-  },
   journalEntryDate: {
     fontSize: 12,
     color: colors.textSecondary,
@@ -1015,15 +1016,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textSecondary,
   },
-  analysisIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  analysisText: {
+  analysisHint: {
     fontSize: 12,
-    color: colors.primary,
-    marginLeft: 4,
-    fontWeight: '500',
+    color: colors.textSecondary,
+    fontStyle: 'italic',
   },
   emptyJournalState: {
     alignItems: 'center',
@@ -1054,19 +1050,5 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
-  },
-  analysisHint: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    fontStyle: 'italic',
-  },
-  journalFormTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.textPrimary,
-    marginBottom: 12,
-  },
-  journalSaveButtonDisabled: {
-    backgroundColor: colors.divider,
   },
 });

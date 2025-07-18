@@ -119,7 +119,10 @@ def create_journal_entry(db: Session, entry: schemas.JournalEntryCreate, analysi
     return db_entry
 
 def get_all_user_journals(db: Session, user_id: UUID):
-    return db.query(models.JournalEntry).filter(models.JournalEntry.user_id == user_id).all()
+    all_journals = db.query(models.JournalEntry).filter(models.JournalEntry.user_id == user_id).all()
+    all_journals = sorted(all_journals, key=lambda x: x.created_at, reverse=True)
+    # Convert to list of schemas for response
+    return [schemas.JournalEntryResponseOut.from_orm(journal) for journal in all_journals]
 
 def get_user_journal(db: Session, entry_id: UUID):
     return db.query(models.JournalEntry).filter(models.JournalEntry.id == entry_id).first()

@@ -17,6 +17,7 @@ export const colors = {
     background: '#FFFFFF',
     backgroundSecondary: '#F5F5F5',
     cardBackground: '#F8F8F8',
+    AIBubbleBackground: '#EBEBEB',
     border: '#E0E0E0',
     divider: '#ECECEC',
     excellent: '#7ED321',

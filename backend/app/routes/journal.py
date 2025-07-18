@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form, BackgroundTasks
 from sqlalchemy.orm import Session
 from app.models import User
 from app.utils.token import get_current_user
@@ -14,15 +14,55 @@ import asyncio
 
 router = APIRouter()
 
+async def analyze_and_update_journal(entry_id: str, text_content: str, user_id: str, db: Session):
+    """Background task to analyze journal entry and update the database"""
+    try:
+        print(f"Starting background analysis for journal entry: {entry_id}")
+        
+        # Get user context for better AI analysis
+        user_context = await get_user_context_from_db(db, user_id)
+        print(f"User context gathered for analysis: {user_context}")
+        
+        # Analyze journal entry with Ollama
+        analysis = await analyze_journal_entry(text_content, user_context)
+        print(f"AI Analysis completed: {analysis[:100]}...")
+        
+        # Update the journal entry with the analysis
+        journal_entry = get_user_journal(db, entry_id)
+        if journal_entry:
+            journal_entry.analysis = analysis
+            db.commit()
+            print(f"Journal entry {entry_id} updated with analysis")
+        else:
+            print(f"Warning: Journal entry {entry_id} not found for analysis update")
+            
+    except Exception as e:
+        print(f"Error in background journal analysis: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        # Update with fallback analysis
+        try:
+            journal_entry = get_user_journal(db, entry_id)
+            if journal_entry:
+                word_count = len(text_content.split())
+                fallback_analysis = f"Thank you for taking time to reflect and journal. Your {word_count}-word entry shows commitment to your mental wellness. Regular journaling is an excellent practice for healthcare professionals to process experiences and maintain emotional balance."
+                journal_entry.analysis = fallback_analysis
+                db.commit()
+                print(f"Journal entry {entry_id} updated with fallback analysis")
+        except Exception as fallback_error:
+            print(f"Error updating journal entry with fallback analysis: {fallback_error}")
+
 @router.post("/", response_model=JournalEntryBase)
 async def add_journal_entry(
+    background_tasks: BackgroundTasks,
     user_id: uuid.UUID = Form(...),
     text_content: Optional[str] = Form(None),
     audio_file: Union[UploadFile, str, None] = File(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Create a new journal entry from text or audio with AI analysis"""
+    """Create a new journal entry and analyze it in background"""
     
     if user_id is None or current_user.id is None or user_id != current_user.id:
         raise HTTPException(status_code=403, detail="You can only create journal entries for yourself")
@@ -56,26 +96,7 @@ async def add_journal_entry(
     
     print(f"Audio file saved at: {audio_path}")
     
-    # Get user context for better AI analysis
-    try:
-        user_context = await get_user_context_from_db(db, str(user_id))
-        print(f"User context gathered: {user_context}")
-    except Exception as e:
-        print(f"Error getting user context: {e}")
-        user_context = {}
-    
-    # Analyze journal entry with Ollama
-    try:
-        print("Starting AI analysis...")
-        analysis = await analyze_journal_entry(text_content, user_context)
-        print(f"AI Analysis completed: {analysis[:100]}...")
-    except Exception as e:
-        print(f"Error in AI analysis: {e}")
-        # Fallback analysis
-        word_count = len(text_content.split())
-        analysis = f"Thank you for taking time to reflect and journal. Your {word_count}-word entry shows commitment to your mental wellness. Regular journaling is an excellent practice for healthcare professionals to process experiences and maintain emotional balance."
-
-    # Create entry object with all required fields
+    # Create entry object with placeholder analysis
     try:
         entry_data = JournalEntryCreate(
             user_id=user_id,
@@ -84,9 +105,21 @@ async def add_journal_entry(
             created_at=datetime.utcnow()
         )
         
-        # Add to database with AI analysis
-        db_entry = create_journal_entry(db=db, entry=entry_data, analysis=analysis)
+        # Save to database with temporary analysis
+        temporary_analysis = "Your journal entry is being analyzed by Carely. Refresh to see the insights!"
+        db_entry = create_journal_entry(db=db, entry=entry_data, analysis=temporary_analysis)
         print(f"Journal entry saved to database: {db_entry.id}")
+        
+        # Add background task for AI analysis
+        background_tasks.add_task(
+            analyze_and_update_journal,
+            str(db_entry.id),
+            text_content,
+            str(user_id),
+            db
+        )
+        print(f"Background analysis task added for journal entry: {db_entry.id}")
+        
         return db_entry
         
     except Exception as e:
@@ -125,6 +158,7 @@ def get_journal_entry(
 @router.post("/{entry_id}/reanalyze")
 async def reanalyze_journal_entry(
     entry_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -137,18 +171,20 @@ async def reanalyze_journal_entry(
         raise HTTPException(status_code=403, detail="You can only reanalyze your own journal entries")
     
     try:
-        # Get current user context
-        user_context = await get_user_context_from_db(db, str(current_user.id))
-        
-        # Re-analyze with current context
-        new_analysis = await analyze_journal_entry(entry.text_content, user_context)
-        
-        # Update the entry
-        entry.analysis = new_analysis
+        # Update with temporary message
+        entry.analysis = "Your journal entry is being re-analyzed by Carely. Refresh to see the updated insights!"
         db.commit()
-        db.refresh(entry)
         
-        return {"message": "Journal entry re-analyzed successfully", "analysis": new_analysis}
+        # Add background task for re-analysis
+        background_tasks.add_task(
+            analyze_and_update_journal,
+            str(entry_id),
+            entry.text_content,
+            str(current_user.id),
+            db
+        )
+        
+        return {"message": "Journal entry is being re-analyzed in the background. Refresh to see updated analysis."}
         
     except Exception as e:
         print(f"Error re-analyzing journal entry: {e}")
