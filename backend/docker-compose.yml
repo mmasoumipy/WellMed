@@ -10,52 +10,11 @@ services:
       - ollama
     environment:
       DATABASE_URL: postgresql://myuser:mypassword@db:5432/wellmed_db
-      OLLAMA_URL: http://ollama:11434
-      OLLAMA_MODEL: gemma3:12b
-    networks:
-      - wellmed-network
-    restart: unless-stopped
-
-  ollama:
-    image: ollama/ollama:latest
-    ports:
-      - "11434:11434"
+      OLLAMA_BASE_URL: http://ollama:11434
+      # OLLAMA_MODEL: gemma3:12b
+      OLLAMA_MODEL: gemma2:2b 
     volumes:
-      - ollama_data:/root/.ollama
-    environment:
-      - OLLAMA_KEEP_ALIVE=5m
-      - OLLAMA_HOST=0.0.0.0:11434
-    networks:
-      - wellmed-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-
-  # Separate service to pull the model after ollama is ready
-  ollama-setup:
-    image: ollama/ollama:latest
-    depends_on:
-      ollama:
-        condition: service_healthy
-    volumes:
-      - ollama_data:/root/.ollama
-    environment:
-      - OLLAMA_HOST=http://ollama:11434
-    networks:
-      - wellmed-network
-    command: >
-      sh -c "
-        echo 'Waiting for Ollama to be ready...' &&
-        sleep 10 &&
-        echo 'Pulling gemma3:12b model...' &&
-        ollama pull gemma3:12b &&
-        echo 'Model pulled successfully!'
-      "
-    restart: "no"
+      - ./uploads:/app/uploads
 
   db:
     image: postgres:15
@@ -69,14 +28,26 @@ services:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    networks:
-      - wellmed-network
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama_wellmed
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_ORIGINS=*
+    # For GPU support (optional)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
 
 volumes:
   postgres_data:
   ollama_data:
-
-networks:
-  wellmed-network:
-    driver: bridge
-    

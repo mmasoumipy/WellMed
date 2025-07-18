@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,48 +11,164 @@ import {
   Dimensions,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import api from '../api/api';
 import { colors } from '../constants/colors';
 
 const { width, height } = Dimensions.get('window');
 
 interface Message {
   id: string;
-  text: string;
-  isUser: boolean;
-  timestamp: Date;
+  content: string;
+  role: 'user' | 'assistant';
+  created_at: string;
+}
+
+interface Conversation {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  messages?: Message[];
 }
 
 interface JournalEntry {
   id: string;
-  title: string;
-  content: string;
-  timestamp: Date;
-  mood?: string;
+  text_content: string;
+  analysis: string;
+  created_at: string;
 }
 
 export default function CarelyJournalScreen({ navigation }: any) {
   const [activeTab, setActiveTab] = useState<'carely' | 'journal'>('carely');
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      text: "Hello! I'm Carely, your AI companion. I'm here to support you through your healthcare journey. How are you feeling today?",
-      isUser: false,
-      timestamp: new Date(),
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   
   // Journal states
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
-  const [journalTitle, setJournalTitle] = useState('');
   const [journalContent, setJournalContent] = useState('');
   const [showJournalForm, setShowJournalForm] = useState(false);
+  const [isSavingJournal, setIsSavingJournal] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   
   const scrollViewRef = useRef<ScrollView>(null);
   const slideAnimation = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    initializeData();
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'carely' && currentConversationId) {
+      loadConversationMessages();
+    } else if (activeTab === 'journal') {
+      loadJournalEntries();
+    }
+  }, [activeTab, currentConversationId]);
+
+  const initializeData = async () => {
+    try {
+      const userId = await AsyncStorage.getItem('userId');
+      if (!userId) return;
+
+      // Load conversations for Carely tab
+      await loadConversations();
+      
+      // Load journal entries for Journal tab
+      await loadJournalEntries();
+    } catch (error) {
+      console.error('Error initializing data:', error);
+    }
+  };
+
+  const loadConversations = async () => {
+    try {
+      const userId = await AsyncStorage.getItem('userId');
+      if (!userId) return;
+
+      const response = await api.get(`/chatbot/conversations/user/${userId}`);
+      const userConversations = response.data;
+      
+      setConversations(userConversations);
+      
+      if (userConversations.length > 0 && !currentConversationId) {
+        // Load the most recent conversation
+        setCurrentConversationId(userConversations[0].id);
+      } else if (userConversations.length === 0) {
+        // Create a new conversation if none exist
+        await createNewConversation();
+      }
+    } catch (error) {
+      console.error('Error loading conversations:', error);
+      // Create new conversation on error
+      await createNewConversation();
+    }
+  };
+
+  const createNewConversation = async () => {
+    try {
+      const userId = await AsyncStorage.getItem('userId');
+      if (!userId) return;
+
+      const response = await api.post(`/chatbot/conversations/?user_id=${userId}`);
+      const newConversation = response.data;
+      
+      setCurrentConversationId(newConversation.id);
+      setConversations(prev => [newConversation, ...prev]);
+      setMessages([]);
+      
+      // Add welcome message
+      const welcomeMessage: Message = {
+        id: 'welcome',
+        content: "Hello! I'm Carely, your AI wellness companion. I'm here to support you through your healthcare journey. How are you feeling today?",
+        role: 'assistant',
+        created_at: new Date().toISOString(),
+      };
+      setMessages([welcomeMessage]);
+      
+    } catch (error) {
+      console.error('Error creating conversation:', error);
+      Alert.alert('Error', 'Could not create new conversation. Please try again.');
+    }
+  };
+
+  const loadConversationMessages = async () => {
+    if (!currentConversationId) return;
+    
+    try {
+      const response = await api.get(`/chatbot/conversations/${currentConversationId}`);
+      const conversation = response.data;
+      
+      if (conversation.messages) {
+        setMessages(conversation.messages);
+        // Scroll to bottom after loading messages
+        setTimeout(() => {
+          scrollViewRef.current?.scrollToEnd({ animated: true });
+        }, 100);
+      }
+    } catch (error) {
+      console.error('Error loading conversation messages:', error);
+    }
+  };
+
+  const loadJournalEntries = async () => {
+    try {
+      const userId = await AsyncStorage.getItem('userId');
+      if (!userId) return;
+
+      const response = await api.get(`/journals/user/${userId}`);
+      setJournalEntries(response.data);
+    } catch (error) {
+      console.error('Error loading journal entries:', error);
+    }
+  };
 
   const switchTab = (tab: 'carely' | 'journal') => {
     Animated.timing(slideAnimation, {
@@ -64,63 +180,147 @@ export default function CarelyJournalScreen({ navigation }: any) {
   };
 
   const sendMessage = async () => {
-    if (!inputText.trim()) return;
+    if (!inputText.trim() || !currentConversationId) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
-      text: inputText.trim(),
-      isUser: true,
-      timestamp: new Date(),
+      content: inputText.trim(),
+      role: 'user',
+      created_at: new Date().toISOString(),
     };
 
+    console.log('Sending message:', userMessage.content);
+
+    // Add user message immediately
     setMessages(prev => [...prev, userMessage]);
     setInputText('');
     setIsTyping(true);
 
-    // Simulate AI response (replace with Ollama integration)
+    // Scroll to bottom
     setTimeout(() => {
-      const aiResponse: Message = {
-        id: (Date.now() + 1).toString(),
-        text: generateAIResponse(userMessage.text),
-        isUser: false,
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, aiResponse]);
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 100);
+
+    try {
+      // Send message to backend
+      const response = await api.post('/chatbot/messages/', {
+        conversation_id: currentConversationId,
+        content: userMessage.content,
+        role: 'user',
+      });
+
+      console.log('Message sent successfully:', response.data);
+
+      // Reset poll attempts counter
+      (pollForNewMessages as any).attempts = 0;
+
+      // Start polling for AI response with a longer initial delay
+      setTimeout(() => {
+        pollForNewMessages();
+      }, 3000); // Wait 3 seconds before first poll
+
+    } catch (error) {
+      console.error('Error sending message:', error);
       setIsTyping(false);
-    }, 1500);
+      Alert.alert('Error', 'Failed to send message. Please try again.');
+    }
   };
 
-  const generateAIResponse = (userText: string): string => {
-    // Placeholder AI responses (replace with Ollama integration)
-    const responses = [
-      "I understand how challenging healthcare work can be. Your feelings are completely valid.",
-      "It sounds like you're dealing with a lot. Remember, taking care of yourself is just as important as caring for your patients.",
-      "Burnout is common in healthcare. What specific aspect is weighing on you most today?",
-      "Your dedication to patient care is admirable. Have you considered any stress-relief techniques?",
-      "I'm here to listen. Sometimes just talking about these challenges can help lighten the load.",
-    ];
-    return responses[Math.floor(Math.random() * responses.length)];
+  const pollForNewMessages = async () => {
+    if (!currentConversationId) return;
+
+    try {
+      const response = await api.get(`/chatbot/messages/${currentConversationId}`);
+      const allMessages = response.data;
+      
+      console.log('Polling - Current messages count:', messages.length);
+      console.log('Polling - Server messages count:', allMessages.length);
+      
+      // Check if there are new messages
+      if (allMessages.length > messages.length) {
+        console.log('New messages found, updating UI');
+        setMessages(allMessages);
+        setIsTyping(false);
+        
+        // Scroll to bottom
+        setTimeout(() => {
+          scrollViewRef.current?.scrollToEnd({ animated: true });
+        }, 100);
+      } else if (allMessages.length === messages.length) {
+        // Still waiting for AI response, continue polling but with limit
+        const pollAttempts = (pollForNewMessages as any).attempts || 0;
+        if (pollAttempts < 10) { // Max 10 attempts (20 seconds)
+          (pollForNewMessages as any).attempts = pollAttempts + 1;
+          console.log('Still waiting for AI response, attempt:', pollAttempts + 1);
+          setTimeout(() => {
+            pollForNewMessages();
+          }, 2000);
+        } else {
+          console.log('Polling timeout, stopping');
+          setIsTyping(false);
+          // Reset attempts for next time
+          (pollForNewMessages as any).attempts = 0;
+        }
+      }
+    } catch (error) {
+      console.error('Error polling for messages:', error);
+      setIsTyping(false);
+      // Reset attempts on error
+      (pollForNewMessages as any).attempts = 0;
+    }
   };
 
-  const saveJournalEntry = () => {
-    if (!journalTitle.trim() || !journalContent.trim()) {
-      Alert.alert('Missing Information', 'Please provide both a title and content for your journal entry.');
+  const saveJournalEntry = async () => {
+    if (!journalContent.trim()) {
+      Alert.alert('Missing Content', 'Please write something in your journal entry.');
       return;
     }
 
-    const newEntry: JournalEntry = {
-      id: Date.now().toString(),
-      title: journalTitle.trim(),
-      content: journalContent.trim(),
-      timestamp: new Date(),
-    };
+    setIsSavingJournal(true);
 
-    setJournalEntries(prev => [newEntry, ...prev]);
-    setJournalTitle('');
-    setJournalContent('');
-    setShowJournalForm(false);
-    
-    Alert.alert('Success', 'Your journal entry has been saved successfully!');
+    try {
+      const userId = await AsyncStorage.getItem('userId');
+      if (!userId) {
+        Alert.alert('Error', 'User not found. Please log in again.');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('user_id', userId);
+      formData.append('text_content', journalContent.trim());
+      
+      const response = await api.post('/journals/', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      // Add new entry to the beginning of the list
+      setJournalEntries(prev => [response.data, ...prev]);
+      setJournalContent('');
+      setShowJournalForm(false);
+      
+      Alert.alert(
+        'Journal Saved! 📝', 
+        'Your journal entry has been saved and analyzed by Carely.',
+        [{ text: 'Great!', style: 'default' }]
+      );
+
+    } catch (error: any) {
+      console.error('Error saving journal:', error);
+      Alert.alert(
+        'Save Error', 
+        'Could not save your journal entry. Please try again.'
+      );
+    } finally {
+      setIsSavingJournal(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await initializeData();
+    setRefreshing(false);
   };
 
   const renderMessage = (message: Message) => (
@@ -128,10 +328,10 @@ export default function CarelyJournalScreen({ navigation }: any) {
       key={message.id}
       style={[
         styles.messageContainer,
-        message.isUser ? styles.userMessage : styles.aiMessage,
+        message.role === 'user' ? styles.userMessage : styles.aiMessage,
       ]}
     >
-      {!message.isUser && (
+      {message.role === 'assistant' && (
         <View style={styles.avatarContainer}>
           <Ionicons name="heart" size={16} color={colors.primary} />
         </View>
@@ -139,47 +339,55 @@ export default function CarelyJournalScreen({ navigation }: any) {
       <View
         style={[
           styles.messageBubble,
-          message.isUser ? styles.userBubble : styles.aiBubble,
+          message.role === 'user' ? styles.userBubble : styles.aiBubble,
         ]}
       >
         <Text
           style={[
             styles.messageText,
-            message.isUser ? styles.userMessageText : styles.aiMessageText,
+            message.role === 'user' ? styles.userMessageText : styles.aiMessageText,
           ]}
         >
-          {message.text}
+          {message.content}
         </Text>
         <Text
           style={[
             styles.messageTime,
-            message.isUser ? styles.userMessageTime : styles.aiMessageTime,
+            message.role === 'user' ? styles.userMessageTime : styles.aiMessageTime,
           ]}
         >
-          {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </Text>
       </View>
     </View>
   );
 
   const renderJournalEntry = (entry: JournalEntry) => (
-    <TouchableOpacity key={entry.id} style={styles.journalEntryCard}>
+    <TouchableOpacity 
+      key={entry.id} 
+      style={styles.journalEntryCard}
+      onPress={() => {
+        Alert.alert(
+          'Carely\'s Analysis',
+          entry.analysis,
+          [{ text: 'Thank you', style: 'default' }]
+        );
+      }}
+    >
       <View style={styles.journalEntryHeader}>
-        <Text style={styles.journalEntryTitle}>{entry.title}</Text>
         <Text style={styles.journalEntryDate}>
-          {entry.timestamp.toLocaleDateString()}
+          {new Date(entry.created_at).toLocaleDateString()}
         </Text>
+        <Ionicons name="analytics" size={16} color={colors.primary} />
       </View>
-      <Text style={styles.journalEntryPreview} numberOfLines={3}>
-        {entry.content}
+      <Text style={styles.journalEntryPreview} numberOfLines={4}>
+        {entry.text_content}
       </Text>
       <View style={styles.journalEntryFooter}>
         <Text style={styles.journalEntryTime}>
-          {entry.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          {new Date(entry.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </Text>
-        <TouchableOpacity style={styles.journalActionButton}>
-          <Ionicons name="ellipsis-horizontal" size={16} color={colors.textSecondary} />
-        </TouchableOpacity>
+        <Text style={styles.analysisHint}>Tap to see Carely's insights</Text>
       </View>
     </TouchableOpacity>
   );
@@ -195,8 +403,11 @@ export default function CarelyJournalScreen({ navigation }: any) {
           <Text style={styles.carelyName}>Carely</Text>
           <Text style={styles.carelyStatus}>Your AI Wellness Companion</Text>
         </View>
-        <TouchableOpacity style={styles.headerButton}>
-          <Ionicons name="information-circle-outline" size={20} color={colors.textSecondary} />
+        <TouchableOpacity 
+          style={styles.headerButton}
+          onPress={createNewConversation}
+        >
+          <Ionicons name="add-outline" size={20} color={colors.primary} />
         </TouchableOpacity>
       </View>
 
@@ -205,6 +416,9 @@ export default function CarelyJournalScreen({ navigation }: any) {
         ref={scrollViewRef}
         style={styles.messagesContainer}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
         onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
       >
         {messages.map(renderMessage)}
@@ -216,9 +430,8 @@ export default function CarelyJournalScreen({ navigation }: any) {
             </View>
             <View style={[styles.messageBubble, styles.aiBubble]}>
               <View style={styles.typingIndicator}>
-                <View style={styles.typingDot} />
-                <View style={styles.typingDot} />
-                <View style={styles.typingDot} />
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={styles.typingText}>Carely is thinking...</Text>
               </View>
             </View>
           </View>
@@ -239,7 +452,7 @@ export default function CarelyJournalScreen({ navigation }: any) {
         <TouchableOpacity
           style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]}
           onPress={sendMessage}
-          disabled={!inputText.trim()}
+          disabled={!inputText.trim() || isTyping}
         >
           <Ionicons
             name="send"
@@ -258,8 +471,8 @@ export default function CarelyJournalScreen({ navigation }: any) {
         <View style={styles.journalHeaderLeft}>
           <Ionicons name="journal" size={24} color={colors.accent} />
           <View style={styles.journalHeaderText}>
-            <Text style={styles.journalHeaderTitle}>Daily Journal</Text>
-            <Text style={styles.journalHeaderSubtitle}>Reflect on your day</Text>
+            <Text style={styles.journalHeaderTitle}>AI-Analyzed Journal</Text>
+            <Text style={styles.journalHeaderSubtitle}>Reflect with Carely's insights</Text>
           </View>
         </View>
         <TouchableOpacity
@@ -273,16 +486,10 @@ export default function CarelyJournalScreen({ navigation }: any) {
       {/* Journal Form */}
       {showJournalForm && (
         <View style={styles.journalForm}>
-          <TextInput
-            style={styles.journalTitleInput}
-            placeholder="Entry title..."
-            placeholderTextColor={colors.textSecondary}
-            value={journalTitle}
-            onChangeText={setJournalTitle}
-          />
+          <Text style={styles.journalFormTitle}>How was your day?</Text>
           <TextInput
             style={styles.journalContentInput}
-            placeholder="How was your day? What are you thinking about?"
+            placeholder="Share your thoughts, experiences, and feelings. Carely will provide personalized insights to support your wellbeing."
             placeholderTextColor={colors.textSecondary}
             value={journalContent}
             onChangeText={setJournalContent}
@@ -294,17 +501,21 @@ export default function CarelyJournalScreen({ navigation }: any) {
               style={styles.journalCancelButton}
               onPress={() => {
                 setShowJournalForm(false);
-                setJournalTitle('');
                 setJournalContent('');
               }}
             >
               <Text style={styles.journalCancelText}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.journalSaveButton}
+              style={[styles.journalSaveButton, isSavingJournal && styles.journalSaveButtonDisabled]}
               onPress={saveJournalEntry}
+              disabled={isSavingJournal}
             >
-              <Text style={styles.journalSaveText}>Save Entry</Text>
+              {isSavingJournal ? (
+                <ActivityIndicator size="small" color="white" />
+              ) : (
+                <Text style={styles.journalSaveText}>Save & Analyze</Text>
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -314,13 +525,16 @@ export default function CarelyJournalScreen({ navigation }: any) {
       <ScrollView
         style={styles.journalEntriesContainer}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       >
         {journalEntries.length === 0 ? (
           <View style={styles.emptyJournalState}>
             <Ionicons name="journal-outline" size={64} color={colors.textSecondary} />
             <Text style={styles.emptyJournalTitle}>No journal entries yet</Text>
             <Text style={styles.emptyJournalText}>
-              Start documenting your thoughts and experiences as a healthcare professional
+              Start documenting your thoughts and get AI-powered insights from Carely to support your wellbeing
             </Text>
             <TouchableOpacity
               style={styles.startJournalingButton}
@@ -386,7 +600,7 @@ export default function CarelyJournalScreen({ navigation }: any) {
                 activeTab === 'carely' ? styles.activeTabText : styles.inactiveTabText,
               ]}
             >
-              Carely
+              Carely Chat
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -404,7 +618,7 @@ export default function CarelyJournalScreen({ navigation }: any) {
                 activeTab === 'journal' ? styles.activeTabText : styles.inactiveTabText,
               ]}
             >
-              Journal
+              AI Journal
             </Text>
           </TouchableOpacity>
         </View>
@@ -486,6 +700,19 @@ const styles = StyleSheet.create({
   },
   tabContent: {
     flex: 1,
+  },
+  
+  // Loading states
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: colors.textSecondary,
   },
   
   // Carely Tab Styles
@@ -593,12 +820,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
   },
-  typingDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.textSecondary,
-    marginHorizontal: 2,
+  typingText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
   },
   inputContainer: {
     flexDirection: 'row',
@@ -731,11 +957,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   journalSaveText: {
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+    marginLeft: 8,
+  },
+  buttonDisabled: {
+    backgroundColor: colors.divider,
   },
   journalEntriesContainer: {
     flex: 1,
@@ -783,8 +1015,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textSecondary,
   },
-  journalActionButton: {
-    padding: 4,
+  analysisIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  analysisText: {
+    fontSize: 12,
+    color: colors.primary,
+    marginLeft: 4,
+    fontWeight: '500',
   },
   emptyJournalState: {
     alignItems: 'center',
@@ -815,5 +1054,19 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+  },
+  analysisHint: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+  },
+  journalFormTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.textPrimary,
+    marginBottom: 12,
+  },
+  journalSaveButtonDisabled: {
+    backgroundColor: colors.divider,
   },
 });

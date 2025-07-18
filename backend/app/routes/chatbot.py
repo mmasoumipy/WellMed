@@ -23,31 +23,19 @@ from app.crud import (
     get_conversation_messages,
     get_conversation_with_messages
 )
-from app.services.chatbot import generate_ai_response
-from app.services.ollama_service import ollama_service
-import logging
-
-logger = logging.getLogger(__name__)
+from app.services.chatbot import generate_ai_response, get_user_context_from_db, test_ollama_connection
 
 router = APIRouter()
 
-# Health check endpoint
+# Health check for Ollama
 @router.get("/health")
-async def chatbot_health():
-    """Check if the chatbot service is healthy"""
-    try:
-        is_available = await ollama_service.check_model_availability()
-        return {
-            "status": "healthy" if is_available else "degraded",
-            "ollama_available": is_available,
-            "model": ollama_service.model_name
-        }
-    except Exception as e:
-        logger.error(f"Health check failed: {str(e)}")
-        return {
-            "status": "unhealthy",
-            "error": str(e)
-        }
+async def check_ollama_health():
+    """Check if Ollama service is running"""
+    is_connected = await test_ollama_connection()
+    if is_connected:
+        return {"status": "healthy", "message": "Ollama is connected and running"}
+    else:
+        return {"status": "unhealthy", "message": "Ollama is not accessible"}
 
 # Conversation routes
 @router.post("/conversations/", response_model=Conversation)
@@ -59,10 +47,7 @@ def create_new_conversation(
     """Create a new conversation"""
     if user_id is None or current_user.id is None or user_id != current_user.id:
         raise HTTPException(status_code=403, detail="You can only create conversations for yourself")
-    
-    conversation = create_conversation(db=db, user_id=user_id)
-    logger.info(f"Created new conversation {conversation.id} for user {user_id}")
-    return conversation
+    return create_conversation(db=db, user_id=user_id)
 
 @router.get("/conversations/user/{user_id}", response_model=List[Conversation])
 def get_user_chat_history(
@@ -73,7 +58,6 @@ def get_user_chat_history(
     """Get all conversations for a user"""
     if user_id is None or current_user.id is None or user_id != current_user.id:
         raise HTTPException(status_code=403, detail="You can only access your own conversations")
-    
     return get_user_conversations(db, user_id=user_id)
 
 @router.get("/conversations/{conversation_id}", response_model=ConversationWithMessages)
@@ -82,7 +66,7 @@ def get_single_conversation(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get a specific conversation with messages"""
+    """Get a specific conversation with all messages"""
     conversation = get_conversation_with_messages(db, conversation_id=conversation_id)
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
@@ -127,11 +111,10 @@ def delete_single_conversation(
     
     success = delete_conversation(db, conversation_id)
     if not success:
-        raise HTTPException(status_code=404, detail="Conversation not found")
-    
+        raise HTTPException(status_code=404, detail="Failed to delete conversation")
     return {"detail": "Conversation deleted successfully"}
 
-# Message routes
+# Message routes with Ollama integration
 @router.post("/messages/", response_model=Message)
 async def send_message(
     message: MessageCreate, 
@@ -140,7 +123,6 @@ async def send_message(
     current_user: User = Depends(get_current_user)
 ):
     """Send a message and get AI response"""
-    
     # Verify user owns the conversation
     conversation = get_conversation(db, message.conversation_id)
     if not conversation:
@@ -155,40 +137,45 @@ async def send_message(
     
     # Save the user message
     user_message = create_message(db=db, message=message)
-    logger.info(f"User message saved: {user_message.id}")
     
     # Generate AI response in the background
     background_tasks.add_task(
         process_ai_response,
         conversation_id=message.conversation_id,
-        user_message_content=message.content,
+        user_message=message.content,
         user_id=current_user.id,
         db=db
     )
     
     return user_message
 
-async def process_ai_response(
-    conversation_id: UUID, 
-    user_message_content: str, 
-    user_id: UUID,
-    db: Session
-):
-    """Process AI response in the background"""
+async def process_ai_response(conversation_id: UUID, user_message: str, user_id: UUID, db: Session):
+    """Process AI response using Ollama"""
     try:
+        print(f"Processing AI response for conversation {conversation_id}")
+        
         # Get conversation history for context
         messages = get_conversation_messages(db, conversation_id)
+        print(f"Found {len(messages)} existing messages in conversation")
         
-        # Format messages for AI context (limit to last 20 messages)
+        # Format messages for AI context (limit to last 10 messages to avoid token limits)
         message_history = []
-        for msg in messages[-20:]:
+        for msg in messages[-10:]:  # Get last 10 messages
             message_history.append({
                 "role": msg.role, 
                 "content": msg.content
             })
         
-        # Generate AI response with user context
-        ai_response = await generate_ai_response(message_history, user_id, db)
+        print(f"Prepared {len(message_history)} messages for AI context")
+        
+        # Get user context for personalized responses
+        user_context = await get_user_context_from_db(db, str(user_id))
+        print(f"User context: {user_context}")
+        
+        # Generate AI response using Ollama
+        print("Calling Ollama for AI response...")
+        ai_response = await generate_ai_response(message_history, user_context)
+        print(f"AI response received: {ai_response[:100]}...")
         
         # Save AI response to database
         assistant_message = MessageCreate(
@@ -197,24 +184,30 @@ async def process_ai_response(
             role="assistant"
         )
         
-        ai_message = create_message(db=db, message=assistant_message)
-        logger.info(f"AI response saved: {ai_message.id}")
+        saved_message = create_message(db=db, message=assistant_message)
+        print(f"AI response saved to database with ID: {saved_message.id}")
+        
+        print(f"AI response generated and saved for conversation {conversation_id}")
         
     except Exception as e:
-        logger.error(f"Error processing AI response: {str(e)}")
-        # Save error message
-        try:
-            error_message = MessageCreate(
-                conversation_id=conversation_id,
-                content="I'm sorry, I'm having trouble responding right now. Please try again.",
-                role="assistant"
-            )
-            create_message(db=db, message=error_message)
-        except Exception as db_error:
-            logger.error(f"Failed to save error message: {str(db_error)}")
+        print(f"Error processing AI response: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        # Save fallback response
+        fallback_response = "I'm having trouble processing your message right now. As a healthcare professional, remember that it's important to take breaks and practice self-care. Please try again in a moment."
+        
+        assistant_message = MessageCreate(
+            conversation_id=conversation_id,
+            content=fallback_response,
+            role="assistant"
+        )
+        
+        saved_message = create_message(db=db, message=assistant_message)
+        print(f"Fallback response saved with ID: {saved_message.id}")
 
 @router.get("/messages/{conversation_id}", response_model=List[Message])
-def get_conversation_messages_route(
+def get_messages(
     conversation_id: UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -225,56 +218,102 @@ def get_conversation_messages_route(
         raise HTTPException(status_code=404, detail="Conversation not found")
     
     if conversation.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="You can only access your own conversations")
+        raise HTTPException(status_code=403, detail="You can only access your own conversation messages")
     
     return get_conversation_messages(db, conversation_id)
 
-@router.post("/conversations/{conversation_id}/title/generate")
-async def generate_conversation_title(
-    conversation_id: UUID,
+# Quick message endpoint for simple interactions
+@router.post("/quick-message")
+async def quick_message(
+    message: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Generate a title for a conversation based on its content"""
-    
-    conversation = get_conversation(db, conversation_id)
+    """Send a quick message without creating a persistent conversation"""
+    try:
+        print(f"Quick message received: {message}")
+        
+        # Get user context
+        user_context = await get_user_context_from_db(db, str(current_user.id))
+        print(f"User context for quick message: {user_context}")
+        
+        # Format as message history
+        message_history = [{"role": "user", "content": message}]
+        
+        # Generate response
+        print("Generating AI response for quick message...")
+        ai_response = await generate_ai_response(message_history, user_context)
+        print(f"Quick message AI response: {ai_response}")
+        
+        return {
+            "user_message": message,
+            "ai_response": ai_response,
+            "context_used": bool(user_context)
+        }
+        
+    except Exception as e:
+        print(f"Error in quick message: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "user_message": message,
+            "ai_response": "I'm here to support you as a healthcare professional. Could you please try your message again?",
+            "context_used": False
+        }
+
+# Add a direct sync message endpoint for testing
+@router.post("/send-sync-message")
+async def send_sync_message(
+    message: MessageCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Send a message and get immediate AI response (synchronous)"""
+    # Verify user owns the conversation
+    conversation = get_conversation(db, message.conversation_id)
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
     
     if conversation.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="You can only update your own conversations")
+        raise HTTPException(status_code=403, detail="You can only send messages to your own conversations")
+    
+    # Only allow user messages through this endpoint
+    if message.role != "user":
+        raise HTTPException(status_code=400, detail="Only user messages can be sent through this endpoint")
     
     try:
-        # Get conversation messages
-        messages = get_conversation_messages(db, conversation_id)
+        # Save the user message
+        user_message = create_message(db=db, message=message)
+        print(f"User message saved: {user_message.id}")
         
-        if not messages:
-            raise HTTPException(status_code=400, detail="No messages found to generate title")
+        # Get conversation history
+        messages = get_conversation_messages(db, message.conversation_id)
+        message_history = [{"role": msg.role, "content": msg.content} for msg in messages[-10:]]
         
-        # Get first few messages for title generation
-        first_messages = messages[:5]
-        content = " ".join([msg.content for msg in first_messages])
+        # Get user context
+        user_context = await get_user_context_from_db(db, str(current_user.id))
         
-        # Generate title using AI
-        title_prompt = f"Generate a short, descriptive title (max 5 words) for this conversation: {content[:200]}..."
-        title_response = await ollama_service.generate_response(
-            [{"role": "user", "content": title_prompt}]
+        # Generate AI response
+        ai_response = await generate_ai_response(message_history, user_context)
+        print(f"AI response generated: {ai_response[:100]}...")
+        
+        # Save AI response
+        assistant_message = MessageCreate(
+            conversation_id=message.conversation_id,
+            content=ai_response,
+            role="assistant"
         )
-        
-        # Clean up the title
-        title = title_response.strip().replace('"', '').replace("'", '')
-        if len(title) > 50:
-            title = title[:47] + "..."
-        
-        # Update conversation title
-        update_data = ConversationUpdate(title=title)
-        updated_conversation = update_conversation(db, conversation_id, update_data)
+        ai_message = create_message(db=db, message=assistant_message)
+        print(f"AI message saved: {ai_message.id}")
         
         return {
-            "title": title,
-            "conversation_id": conversation_id
+            "user_message": user_message,
+            "ai_message": ai_message,
+            "success": True
         }
         
     except Exception as e:
-        logger.error(f"Error generating conversation title: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to generate title")
+        print(f"Error in sync message: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Failed to process message")

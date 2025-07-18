@@ -43,6 +43,12 @@ from app.routes import (
     journal, chatbot, goals, wellness
 )
 
+from dotenv import load_dotenv
+import os
+
+# Load environment variables
+load_dotenv()
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,

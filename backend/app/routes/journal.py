@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from app.models import User
 from app.utils.token import get_current_user
@@ -8,17 +8,14 @@ import os
 from app.database import get_db
 from app.schemas import JournalEntryCreate, JournalEntryResponseOut, JournalEntryBase
 from app.crud import create_journal_entry, get_all_user_journals, get_user_journal
-from app.services.chatbot import analyze_journal_entry
+from app.services.chatbot import analyze_journal_entry, get_user_context_from_db
 from typing import Optional, Union
-import logging
-
-logger = logging.getLogger(__name__)
+import asyncio
 
 router = APIRouter()
 
 @router.post("/", response_model=JournalEntryBase)
 async def add_journal_entry(
-    background_tasks: BackgroundTasks,
     user_id: uuid.UUID = Form(...),
     text_content: Optional[str] = Form(None),
     audio_file: Union[UploadFile, str, None] = File(default=None),
@@ -30,7 +27,7 @@ async def add_journal_entry(
     if user_id is None or current_user.id is None or user_id != current_user.id:
         raise HTTPException(status_code=403, detail="You can only create journal entries for yourself")
     
-    logger.info(f"Received journal entry from user: {user_id}")
+    print(f"Received journal entry from user: {user_id}")
 
     if isinstance(audio_file, str) and audio_file == "":
         audio_file = None
@@ -38,6 +35,8 @@ async def add_journal_entry(
     if not text_content and (not audio_file or not audio_file.filename):
         raise HTTPException(status_code=400, detail="Either text content or audio file must be provided")
     
+    print(f"Journal text content: {text_content}")
+
     audio_path = None
     
     # Process audio file if provided
@@ -45,20 +44,39 @@ async def add_journal_entry(
         upload_dir = "uploads/audio"
         os.makedirs(upload_dir, exist_ok=True)
 
-        audio_path = f"{upload_dir}/{user_id}_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}.wav"
+        audio_path = f"{upload_dir}/{user_id}{datetime.utcnow().strftime('%Y%m%d%H%M%S')}.wav"
         contents = await audio_file.read()
         
         with open(audio_path, "wb") as f:
             f.write(contents)
         
-        logger.info(f"Audio file saved at: {audio_path}")
-        
-        # TODO: Implement audio-to-text transcription
+        # TODO: Add speech-to-text conversion here if needed
         if not text_content:
-            text_content = "Audio transcription will be implemented here"
+            text_content = "Audio journal entry (transcription pending)"
     
+    print(f"Audio file saved at: {audio_path}")
+    
+    # Get user context for better AI analysis
     try:
-        # Create entry object
+        user_context = await get_user_context_from_db(db, str(user_id))
+        print(f"User context gathered: {user_context}")
+    except Exception as e:
+        print(f"Error getting user context: {e}")
+        user_context = {}
+    
+    # Analyze journal entry with Ollama
+    try:
+        print("Starting AI analysis...")
+        analysis = await analyze_journal_entry(text_content, user_context)
+        print(f"AI Analysis completed: {analysis[:100]}...")
+    except Exception as e:
+        print(f"Error in AI analysis: {e}")
+        # Fallback analysis
+        word_count = len(text_content.split())
+        analysis = f"Thank you for taking time to reflect and journal. Your {word_count}-word entry shows commitment to your mental wellness. Regular journaling is an excellent practice for healthcare professionals to process experiences and maintain emotional balance."
+
+    # Create entry object with all required fields
+    try:
         entry_data = JournalEntryCreate(
             user_id=user_id,
             text_content=text_content,
@@ -66,19 +84,14 @@ async def add_journal_entry(
             created_at=datetime.utcnow()
         )
         
-        # Generate AI analysis asynchronously
-        analysis = await analyze_journal_entry(text_content, user_id, db)
-        
-        # Create database entry with analysis
+        # Add to database with AI analysis
         db_entry = create_journal_entry(db=db, entry=entry_data, analysis=analysis)
-        
-        logger.info(f"Journal entry created successfully with AI analysis")
-        
+        print(f"Journal entry saved to database: {db_entry.id}")
         return db_entry
         
     except Exception as e:
-        logger.error(f"Error creating journal entry: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to create journal entry: {str(e)}")
+        print(f"Error saving journal entry: {e}")
+        raise HTTPException(status_code=422, detail=f"Failed to save journal entry: {str(e)}")
 
 @router.get("/user/{user_id}", response_model=list[JournalEntryResponseOut])
 def get_journal_entries(
@@ -103,7 +116,7 @@ def get_journal_entry(
     if not entry:
         raise HTTPException(status_code=404, detail="Journal entry not found")
     
-    # Check if user owns this entry
+    # Check if user owns this journal entry
     if entry.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="You can only access your own journal entries")
     
@@ -115,18 +128,20 @@ async def reanalyze_journal_entry(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Re-analyze a journal entry with updated AI"""
-    
+    """Re-analyze a journal entry with updated AI model"""
     entry = get_user_journal(db, entry_id=entry_id)
     if not entry:
         raise HTTPException(status_code=404, detail="Journal entry not found")
     
     if entry.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="You can only access your own journal entries")
+        raise HTTPException(status_code=403, detail="You can only reanalyze your own journal entries")
     
     try:
-        # Generate new analysis
-        new_analysis = await analyze_journal_entry(entry.text_content, current_user.id, db)
+        # Get current user context
+        user_context = await get_user_context_from_db(db, str(current_user.id))
+        
+        # Re-analyze with current context
+        new_analysis = await analyze_journal_entry(entry.text_content, user_context)
         
         # Update the entry
         entry.analysis = new_analysis
@@ -136,45 +151,5 @@ async def reanalyze_journal_entry(
         return {"message": "Journal entry re-analyzed successfully", "analysis": new_analysis}
         
     except Exception as e:
-        logger.error(f"Error re-analyzing journal entry: {str(e)}")
+        print(f"Error re-analyzing journal entry: {e}")
         raise HTTPException(status_code=500, detail="Failed to re-analyze journal entry")
-
-@router.get("/user/{user_id}/insights")
-async def get_journal_insights(
-    user_id: uuid.UUID,
-    limit: int = 10,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Get AI-generated insights from recent journal entries"""
-    
-    if user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="You can only access your own insights")
-    
-    try:
-        # Get recent journal entries
-        entries = get_all_user_journals(db, user_id=user_id)
-        recent_entries = entries[:limit]
-        
-        if not recent_entries:
-            return {"insights": "No journal entries found for analysis"}
-        
-        # Combine recent entries for pattern analysis
-        combined_text = " ".join([entry.text_content for entry in recent_entries])
-        
-        # Generate insights
-        insights = await analyze_journal_entry(
-            f"Analyze patterns and provide insights from these journal entries: {combined_text}",
-            user_id,
-            db
-        )
-        
-        return {
-            "insights": insights,
-            "entries_analyzed": len(recent_entries),
-            "period": f"Last {len(recent_entries)} entries"
-        }
-        
-    except Exception as e:
-        logger.error(f"Error generating journal insights: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to generate insights")

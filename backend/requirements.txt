@@ -6,9 +6,23 @@ python-dotenv
 alembic
 pydantic
 passlib
-pydantic
 python-multipart
 httpx
 python-jose
 python-multipart
 passlib
+
+# For Ollama integration
+httpx>=0.24.0
+asyncio
+aiofiles
+
+# For enhanced logging
+loguru
+
+# For better async support
+asyncpg
+
+# For audio processing (if needed later)
+# librosa
+# speechrecognition
