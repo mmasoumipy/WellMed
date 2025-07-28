@@ -33,6 +33,14 @@ To provide healthcare professionals with accessible, scientifically-backed tools
 
 ## ✨ Features
 
+### 🎓 Wellness Courses (NEW)
+
+- **Core Burnout Prevention Modules** - 9 comprehensive courses covering fundamental burnout prevention strategies
+- **Quick Wins Mini-Courses** - 4 bite-sized courses (2-5 minutes) for immediate stress relief techniques
+- **Specialty-Specific Training** - Targeted courses for ICU, Emergency Medicine, Nursing, and Surgical teams
+- **Progress Tracking** - Visual progress indicators, completion badges, and achievement tracking
+- **Interactive Learning** - Reading materials, exercises, interactive assessments, and practical action items
+
 ### 📊 Assessment Tools
 - **Maslach Burnout Inventory (MBI)** - Gold standard for burnout assessment
 - **Micro Assessments** - Quick daily wellness check-ins
@@ -138,6 +146,29 @@ cd backend
 pip install -r requirements.txt
 export DATABASE_URL="postgresql://myuser:mypassword@localhost:5432/wellmed_db"
 uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload
+```
+
+### **Database Setup**
+1. **Create PostgreSQL database**
+```bash
+createdb wellmed_db
+```
+Tables are automatically created on first run
+
+### **AI Setup**
+1. **Install Ollama**
+```bash
+curl -fsSL https://ollama.ai/install.sh | sh
+```
+
+2. **Pull the model**
+```bash
+ollama pull gemma2:2b
+```
+
+3. **Start Ollama service**
+```bash
+ollama serve
 ```
 
 ### Mobile App Setup

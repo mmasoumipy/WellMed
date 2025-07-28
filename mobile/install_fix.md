@@ -180,7 +180,7 @@ npm install react-native-dotenv
 npm install react-native-health
 npx pod-install ios
 ```
-## After installing the "react-native-health" module, it will break. So, based om the below fix, you will need to make your index.js file in: node_modules > react0native-health > index.js 
+## After installing the "react-native-health" module, it will break. So, based om the below fix, you will need to make your index.js file in: node_modules > react-native-health > index.js 
 [More explaination](https://github.com/agencyenterprise/react-native-health/issues/399#issuecomment-2585484469)
 
 Based on above help, the 'export' line should be as below:
