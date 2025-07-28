@@ -14,6 +14,7 @@ import WellnessStreakCard from '../components/WellnessStreakCard';
 import CompactMoodTracker from '../components/MoodSelector';
 import CompactWellnessActivities from '../components/WellnessActivities';
 import CompactAssessments from '../components/CompactAssessments';
+import CompactCourses from '../components/CompactCourses';
 import api from '../api/api';
 
 export default function HomeScreen({ navigation }: any) {
@@ -93,6 +94,59 @@ export default function HomeScreen({ navigation }: any) {
     } catch (e) {
       console.error('Error saving mood:', e);
       Alert.alert('Error', 'Failed to save mood. Please try again.');
+    }
+  };
+
+  const handleStartCourse = (courseId: string) => {
+    // Create a mock course object for navigation
+    const courseMap: Record<string, any> = {
+      'burnout-basics': {
+        id: 'burnout-basics',
+        title: 'What is Burnout?',
+        description: 'Understanding the signs, symptoms, and science behind physician burnout',
+        duration: '15 min',
+        difficulty: 'Beginner',
+        icon: 'information-circle-outline',
+        color: colors.primary,
+        modules: 4,
+      },
+      'micro-resilience': {
+        id: 'micro-resilience',
+        title: 'Micro-Resilience: Two-Minute Stress Reducers',
+        description: 'Quick, evidence-based techniques you can use anywhere',
+        duration: '12 min',
+        difficulty: 'Beginner',
+        icon: 'flash-outline',
+        color: colors.accent,
+        modules: 6,
+      },
+      'values-based-prevention': {
+        id: 'values-based-prevention',
+        title: 'Know Your Why: Values-Based Burnout Prevention',
+        description: 'Reconnect with your core values and purpose in medicine',
+        duration: '20 min',
+        difficulty: 'Beginner',
+        icon: 'heart-outline',
+        color: colors.success,
+        modules: 5,
+      },
+      'quick-breathing': {
+        id: 'quick-breathing',
+        title: '5-Minute Energy Reset',
+        description: 'Quick breathing exercises for instant stress relief',
+        duration: '5 min',
+        difficulty: 'Beginner',
+        icon: 'leaf-outline',
+        color: colors.success,
+        modules: 1,
+      },
+    };
+
+    const course = courseMap[courseId];
+    if (course) {
+      navigation.navigate('CourseContent', { course });
+    } else {
+      Alert.alert('Coming Soon', 'This course is currently being developed!');
     }
   };
 
@@ -197,6 +251,12 @@ export default function HomeScreen({ navigation }: any) {
         longestStreak={longestStreak}
         lastActivityDate={lastActivityDate}
         onStreakPress={() => navigation.navigate('Profile')}
+      />
+
+      {/* Compact Courses */}
+      <CompactCourses
+        onViewAllCourses={() => navigation.navigate('Courses')}
+        onStartCourse={handleStartCourse}
       />
 
       {/* Compact Wellness Activities */}

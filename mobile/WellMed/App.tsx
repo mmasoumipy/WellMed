@@ -20,7 +20,8 @@ import SettingsScreen from './src/screens/SettingsScreen';
 import BoxBreathingScreen from './src/screens/BoxBreathingScreen';
 import StretchScreen from './src/screens/StretchScreen';
 import WellnessHistoryScreen from './src/screens/WellnessHistoryScreen';
-
+import CoursesScreen from './src/screens/CoursesScreen';
+import CourseContentScreen from './src/screens/CourseContentScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -29,26 +30,6 @@ export default function App() {
   const [initialRoute, setInitialRoute] = useState('Login');
   
   useEffect(() => {
-    // Create notification channel 
-    // PushNotification.createChannel(
-    //   {
-    //     channelId: 'mbi-reminder-channel',
-    //     channelName: 'MBI Reminders',
-    //     channelDescription: 'Monthly reminders for MBI assessments',
-    //     importance: 4,
-    //     vibrate: true,
-    //   },
-    //   (created) => console.log(`createChannel returned '${created}'`)
-    // );
-
-    // // Optional: Configure notifications (required for iOS)
-    // PushNotification.configure({
-    //   onNotification: function (notification) {
-    //     console.log('NOTIFICATION:', notification);
-    //   },
-    //   requestPermissions: Platform.OS === 'ios',
-    // });
-
     PushNotification.configure({
       onNotification: function (notification) {
         console.log('Notification:', notification);
@@ -56,7 +37,6 @@ export default function App() {
       },
       requestPermissions: true,
     });
-
 
     const checkToken = async () => {
       const token = await AsyncStorage.getItem('authToken');
@@ -76,6 +56,8 @@ export default function App() {
             
             if (route.name === 'Home') {
               iconName = focused ? 'home' : 'home-outline';
+            } else if (route.name === 'Courses') {
+              iconName = focused ? 'school' : 'school-outline';
             } else if (route.name === 'CarelyJournal') {
               iconName = focused ? 'heart' : 'heart-outline';
             } else if (route.name === 'Profile' || 
@@ -116,6 +98,14 @@ export default function App() {
           }} 
         />
         <Tab.Screen 
+          name="Courses" 
+          component={CoursesScreen} 
+          options={{ 
+            headerShown: false,
+            tabBarLabel: 'Courses',
+          }} 
+        />
+        <Tab.Screen 
           name="CarelyJournal" 
           component={CarelyJournalScreen} 
           options={{ 
@@ -135,19 +125,18 @@ export default function App() {
     );
   }
 
-    const HomeStack = createNativeStackNavigator();
+  const HomeStack = createNativeStackNavigator();
 
-      function ProfileStackScreen() {
-        return (
-          <HomeStack.Navigator>
-            <HomeStack.Screen name="ProfileMain" component={ProfileScreen} options={{ headerShown: false }} />
-            <HomeStack.Screen name="MicroAssessment" component={MicroAssessmentScreen} options={{ headerShown: false}} />
-            <HomeStack.Screen name="MBIAssessment" component={MBIAssessmentScreen} options={{ headerShown: false}} />
-            <HomeStack.Screen name="Settings" component={SettingsScreen} options={{ headerShown: false }} />
-          </HomeStack.Navigator>
-        );
-      }
-
+  function ProfileStackScreen() {
+    return (
+      <HomeStack.Navigator>
+        <HomeStack.Screen name="ProfileMain" component={ProfileScreen} options={{ headerShown: false }} />
+        <HomeStack.Screen name="MicroAssessment" component={MicroAssessmentScreen} options={{ headerShown: false}} />
+        <HomeStack.Screen name="MBIAssessment" component={MBIAssessmentScreen} options={{ headerShown: false}} />
+        <HomeStack.Screen name="Settings" component={SettingsScreen} options={{ headerShown: false }} />
+      </HomeStack.Navigator>
+    );
+  }
 
   return (
     <NavigationContainer>
@@ -158,6 +147,7 @@ export default function App() {
         <Stack.Screen name="BoxBreathing" component={BoxBreathingScreen} options={{ title: 'Box Breathing'}} />
         <Stack.Screen name="Stretch" component={StretchScreen} options={{ title: 'Stretching' }} />
         <Stack.Screen name="WellnessHistory" component={WellnessHistoryScreen} options={{ title: 'Wellness History' }} />
+        <Stack.Screen name="CourseContent" component={CourseContentScreen} options={{ headerShown: false }} />
       </Stack.Navigator>
     </NavigationContainer>
   );
