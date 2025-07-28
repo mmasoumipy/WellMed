@@ -8,7 +8,8 @@ import PushNotificationIOS from '@react-native-community/push-notification-ios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors } from './src/constants/colors';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import Icon from 'react-native-ionicons';
+
+// Import screens
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
 import HomeScreen from './src/screens/HomeScreen';
@@ -22,6 +23,7 @@ import StretchScreen from './src/screens/StretchScreen';
 import WellnessHistoryScreen from './src/screens/WellnessHistoryScreen';
 import CoursesScreen from './src/screens/CoursesScreen';
 import CourseContentScreen from './src/screens/CourseContentScreen';
+import MoodHistoryScreen from './src/screens/MoodHistoryScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -125,16 +127,17 @@ export default function App() {
     );
   }
 
-  const HomeStack = createNativeStackNavigator();
+  const ProfileStack = createNativeStackNavigator();
 
   function ProfileStackScreen() {
     return (
-      <HomeStack.Navigator>
-        <HomeStack.Screen name="ProfileMain" component={ProfileScreen} options={{ headerShown: false }} />
-        <HomeStack.Screen name="MicroAssessment" component={MicroAssessmentScreen} options={{ headerShown: false}} />
-        <HomeStack.Screen name="MBIAssessment" component={MBIAssessmentScreen} options={{ headerShown: false}} />
-        <HomeStack.Screen name="Settings" component={SettingsScreen} options={{ headerShown: false }} />
-      </HomeStack.Navigator>
+      <ProfileStack.Navigator>
+        <ProfileStack.Screen name="ProfileMain" component={ProfileScreen} options={{ headerShown: false }} />
+        <ProfileStack.Screen name="MicroAssessment" component={MicroAssessmentScreen} options={{ headerShown: false}} />
+        <ProfileStack.Screen name="MBIAssessment" component={MBIAssessmentScreen} options={{ headerShown: false}} />
+        <ProfileStack.Screen name="Settings" component={SettingsScreen} options={{ headerShown: false }} />
+        <ProfileStack.Screen name="MoodHistory" component={MoodHistoryScreen} options={{ headerShown: false }} />
+      </ProfileStack.Navigator>
     );
   }
 
@@ -148,6 +151,7 @@ export default function App() {
         <Stack.Screen name="Stretch" component={StretchScreen} options={{ title: 'Stretching' }} />
         <Stack.Screen name="WellnessHistory" component={WellnessHistoryScreen} options={{ title: 'Wellness History' }} />
         <Stack.Screen name="CourseContent" component={CourseContentScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="MoodHistory" component={MoodHistoryScreen} options={{ headerShown: false }} />
       </Stack.Navigator>
     </NavigationContainer>
   );

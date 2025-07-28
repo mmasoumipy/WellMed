@@ -242,7 +242,7 @@ export default function HomeScreen({ navigation }: any) {
       {/* Compact Mood Tracker */}
       <CompactMoodTracker
         onMoodSelect={handleMoodSelect}
-        onViewHistory={() => navigation.navigate('Profile', { screen: 'ProfileMood' })}
+        onViewHistory={() => navigation.navigate('MoodHistory')}
       />
 
       {/* Wellness Streak Card */}
