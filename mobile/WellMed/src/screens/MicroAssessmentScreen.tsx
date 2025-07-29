@@ -31,13 +31,14 @@ interface Question {
   highLabel: string;
 }
 
+// Updated questions with accessible colors
 const questions: Question[] = [
   { 
     field: 'fatigue_level', 
     title: 'Energy Level',
     subtitle: 'How energetic do you feel today?',
     icon: 'battery-charging-outline',
-    color: colors.warning,
+    color: colors.secondary, // Teal/blue-green - accessible
     lowLabel: 'Exhausted',
     highLabel: 'Energized'
   },
@@ -46,7 +47,7 @@ const questions: Question[] = [
     title: 'Stress Level',
     subtitle: 'How stressed are you feeling?',
     icon: 'pulse-outline',
-    color: colors.error,
+    color: colors.thirdary, // Orange - but softer, more accessible
     lowLabel: 'Very Calm',
     highLabel: 'Very Stressed'
   },
@@ -55,7 +56,7 @@ const questions: Question[] = [
     title: 'Work Satisfaction',
     subtitle: 'How satisfied are you with your work today?',
     icon: 'briefcase-outline',
-    color: colors.primary,
+    color: colors.primary, // Blue - highly accessible
     lowLabel: 'Unsatisfied',
     highLabel: 'Very Satisfied'
   },
@@ -64,7 +65,7 @@ const questions: Question[] = [
     title: 'Sleep Quality',
     subtitle: 'How well did you sleep last night?',
     icon: 'moon-outline',
-    color: colors.secondary,
+    color: '#6B73FF', // Purple/indigo - accessible alternative
     lowLabel: 'Poor Sleep',
     highLabel: 'Great Sleep'
   },
@@ -73,7 +74,7 @@ const questions: Question[] = [
     title: 'Support Network',
     subtitle: 'How supported do you feel by colleagues?',
     icon: 'people-outline',
-    color: colors.success,
+    color: colors.success, // Green - but keeping it as it's accessible
     lowLabel: 'Unsupported',
     highLabel: 'Well Supported'
   },
@@ -177,6 +178,22 @@ export default function MicroAssessmentScreen({ navigation }: any) {
     }
   };
 
+  const getScaleButtonStyle = (question: Question, value: number, currentValue: number | null) => {
+    const isSelected = currentValue === value;
+    
+    return [
+      styles.scaleButton,
+      isSelected && [
+        styles.selectedScaleButton, 
+        { 
+          backgroundColor: question.color,
+          shadowColor: question.color,
+          borderColor: question.color,
+        }
+      ],
+    ];
+  };
+
   const renderRatingScale = (question: Question) => {
     const currentValue = form[question.field];
     
@@ -209,23 +226,17 @@ export default function MicroAssessmentScreen({ navigation }: any) {
           <Text style={styles.ratingLabel}>{question.highLabel}</Text>
         </View>
         
-        {/* Rating Scale */}
+        {/* Rating Scale with Accessible Design */}
         <View style={styles.scaleContainer}>
           {[0, 1, 2, 3, 4, 5].map((value) => (
             <TouchableOpacity
               key={value}
-              style={[
-                styles.scaleButton,
-                currentValue === value && [
-                  styles.selectedScaleButton, 
-                  { 
-                    backgroundColor: question.color,
-                    shadowColor: question.color,
-                  }
-                ],
-              ]}
+              style={getScaleButtonStyle(question, value, currentValue)}
               onPress={() => selectValue(question.field, value)}
               activeOpacity={0.7}
+              accessibilityLabel={`Rate ${value} out of 5 for ${question.title}`}
+              accessibilityRole="button"
+              accessibilityState={{ selected: currentValue === value }}
             >
               <Text
                 style={[
@@ -235,13 +246,20 @@ export default function MicroAssessmentScreen({ navigation }: any) {
               >
                 {value}
               </Text>
+              {/* Added visual indicator for accessibility */}
+              {/* {currentValue === value && (
+                <View style={styles.selectedIndicator}>
+                  <Ionicons name="checkmark" size={12} color="white" />
+                </View>
+              )} */}
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* Selection Feedback */}
+        {/* Selection Feedback with Better Contrast */}
         {currentValue !== null && (
-          <View style={[styles.selectionFeedback, { backgroundColor: question.color + '10' }]}>
+          <View style={[styles.selectionFeedback, { backgroundColor: question.color + '15' }]}>
+            <Ionicons name="checkmark-circle" size={16} color={question.color} />
             <Text style={[styles.selectionText, { color: question.color }]}>
               Selected: {currentValue} ({
                 currentValue <= 1 ? question.lowLabel.toLowerCase() : 
@@ -275,8 +293,6 @@ export default function MicroAssessmentScreen({ navigation }: any) {
         </View>
         <View style={styles.headerSpacer} />
       </View>
-
-
 
       {/* Questions */}
       <ScrollView 
@@ -337,9 +353,12 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: Platform.OS === 'ios' ? 50 : 30,
+    paddingTop: 50,
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingBottom: 16,
+    backgroundColor: colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
   },
   backButton: {
     padding: 8,
@@ -349,121 +368,135 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: 'bold',
     color: colors.textPrimary,
   },
   headerSubtitle: {
-    fontSize: 14,
+    fontSize: 12,
     color: colors.textSecondary,
-    marginTop: 4,
+    marginTop: 2,
   },
   headerSpacer: {
     width: 40,
   },
   questionsContainer: {
     flex: 1,
-    paddingTop: 10,
   },
   questionsContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingBottom: 100, // Extra space for submit button
   },
   questionCard: {
     backgroundColor: colors.background,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    padding: 16,
+    borderRadius: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 2,
   },
   questionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   questionIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 10,
   },
   questionTextContainer: {
     flex: 1,
   },
   questionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 14,
+    fontWeight: '600',
     color: colors.textPrimary,
     marginBottom: 2,
   },
   questionSubtitle: {
-    fontSize: 13,
+    fontSize: 12,
     color: colors.textSecondary,
-    lineHeight: 18,
+    lineHeight: 16,
   },
   completedBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
   ratingLabels: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 12,
-    paddingHorizontal: 4,
+    marginBottom: 10,
+    paddingHorizontal: 2,
   },
   ratingLabel: {
-    fontSize: 11,
+    fontSize: 10,
     color: colors.textSecondary,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   scaleContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   scaleButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: colors.cardBackground,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: colors.divider,
+    position: 'relative',
   },
   selectedScaleButton: {
     borderColor: 'transparent',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 4,
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
   },
   scaleButtonText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 'bold',
     color: colors.textSecondary,
   },
   selectedScaleButtonText: {
     color: 'white',
   },
-  selectionFeedback: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+  selectedIndicator: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: 'rgba(255,255,255,0.9)',
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selectionFeedback: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    justifyContent: 'center',
   },
   selectionText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '500',
+    marginLeft: 4,
   },
   submitContainer: {
     paddingHorizontal: 20,
@@ -482,6 +515,11 @@ const styles = StyleSheet.create({
   },
   submitButtonActive: {
     backgroundColor: colors.primary,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   submitButtonDisabled: {
     backgroundColor: colors.divider,
