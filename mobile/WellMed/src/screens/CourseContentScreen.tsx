@@ -46,20 +46,20 @@ const getCourseModules = (courseId: string): CourseModule[] => {
           title: 'Introduction to Burnout',
           content: `Burnout is more than just feeling tired after a long shift. It's a psychological syndrome that emerges as a prolonged response to chronic interpersonal stressors on the job.
 
-The three key dimensions of burnout are:
+          The three key dimensions of burnout are:
 
-• Emotional Exhaustion: Feeling emotionally drained and depleted
-• Depersonalization: Developing cynical attitudes toward patients and work
-• Reduced Personal Accomplishment: Feeling ineffective and questioning your competence
+          • Emotional Exhaustion: Feeling emotionally drained and depleted
+          • Depersonalization: Developing cynical attitudes toward patients and work
+          • Reduced Personal Accomplishment: Feeling ineffective and questioning your competence
 
-Healthcare professionals are particularly vulnerable due to:
-- High-stakes decision making
-- Emotional demands of patient care
-- Long hours and shift work
-- Administrative burdens
-- Moral distress from system constraints
+          Healthcare professionals are particularly vulnerable due to:
+          - High-stakes decision making
+          - Emotional demands of patient care
+          - Long hours and shift work
+          - Administrative burdens
+          - Moral distress from system constraints
 
-Understanding these factors is the first step in prevention.`,
+          Understanding these factors is the first step in prevention.`,
           duration: '4 min',
           type: 'reading',
           keyTakeaways: [
@@ -73,18 +73,18 @@ Understanding these factors is the first step in prevention.`,
           title: 'The Science Behind Burnout',
           content: `Research shows that burnout creates measurable changes in your brain and body:
 
-Neurological Impact:
-- Chronic stress shrinks the prefrontal cortex (decision-making center)
-- The amygdala (fear center) becomes hyperactive
-- Memory and concentration are impaired
+          Neurological Impact:
+          - Chronic stress shrinks the prefrontal cortex (decision-making center)
+          - The amygdala (fear center) becomes hyperactive
+          - Memory and concentration are impaired
 
-Physical Effects:
-- Elevated cortisol levels
-- Compromised immune function
-- Increased risk of cardiovascular disease
-- Sleep disruption
+          Physical Effects:
+          - Elevated cortisol levels
+          - Compromised immune function
+          - Increased risk of cardiovascular disease
+          - Sleep disruption
 
-The good news? These changes are largely reversible with proper intervention.`,
+          The good news? These changes are largely reversible with proper intervention.`,
           duration: '3 min',
           type: 'reading',
           keyTakeaways: [
@@ -98,29 +98,29 @@ The good news? These changes are largely reversible with proper intervention.`,
           title: 'Recognizing the Signs',
           content: `Early Warning Signs:
 
-Emotional:
-- Feeling drained, even after rest
-- Increased irritability or cynicism
-- Anxiety about work
-- Emotional numbness
+          Emotional:
+          - Feeling drained, even after rest
+          - Increased irritability or cynicism
+          - Anxiety about work
+          - Emotional numbness
 
-Behavioral:
-- Avoiding patient interactions
-- Procrastinating on tasks
-- Increased absences
-- Isolating from colleagues
+          Behavioral:
+          - Avoiding patient interactions
+          - Procrastinating on tasks
+          - Increased absences
+          - Isolating from colleagues
 
-Physical:
-- Chronic fatigue
-- Frequent illnesses
-- Sleep problems
-- Headaches or muscle tension
+          Physical:
+          - Chronic fatigue
+          - Frequent illnesses
+          - Sleep problems
+          - Headaches or muscle tension
 
-Cognitive:
-- Difficulty concentrating
-- Memory problems
-- Indecisiveness
-- Negative self-talk`,
+          Cognitive:
+          - Difficulty concentrating
+          - Memory problems
+          - Indecisiveness
+          - Negative self-talk`,
           duration: '5 min',
           type: 'interactive',
           keyTakeaways: [
@@ -139,19 +139,19 @@ Cognitive:
           title: 'Prevention Strategies',
           content: `Evidence-Based Prevention:
 
-Individual Strategies:
-- Regular self-assessment
-- Stress management techniques
-- Maintaining work-life boundaries
-- Building resilience skills
-- Seeking support when needed
+          Individual Strategies:
+          - Regular self-assessment
+          - Stress management techniques
+          - Maintaining work-life boundaries
+          - Building resilience skills
+          - Seeking support when needed
 
-Organizational Factors:
-- Workload management
-- Control over work environment
-- Fair reward systems
-- Strong workplace community
-- Alignment with organizational values
+          Organizational Factors:
+          - Workload management
+          - Control over work environment
+          - Fair reward systems
+          - Strong workplace community
+          - Alignment with organizational values
 
 Remember: Prevention is more effective than treatment. Small, consistent actions make a big difference.`,
           duration: '3 min',
@@ -176,17 +176,17 @@ Remember: Prevention is more effective than treatment. Small, consistent actions
           title: 'What is Micro-Resilience?',
           content: `Micro-resilience refers to small, quick interventions that can be done in 2 minutes or less to reset your stress response and build resilience throughout your day.
 
-These techniques are specifically designed for healthcare professionals who:
-- Have limited time between patients
-- Need quick stress relief
-- Want to prevent stress accumulation
-- Work in high-pressure environments
+          These techniques are specifically designed for healthcare professionals who:
+          - Have limited time between patients
+          - Need quick stress relief
+          - Want to prevent stress accumulation
+          - Work in high-pressure environments
 
-The science behind micro-interventions shows that even brief moments of intentional practice can:
-- Lower cortisol levels
-- Activate the parasympathetic nervous system
-- Improve focus and decision-making
-- Build long-term resilience`,
+          The science behind micro-interventions shows that even brief moments of intentional practice can:
+          - Lower cortisol levels
+          - Activate the parasympathetic nervous system
+          - Improve focus and decision-making
+          - Build long-term resilience`,
           duration: '3 min',
           type: 'reading',
           keyTakeaways: [
@@ -200,19 +200,19 @@ The science behind micro-interventions shows that even brief moments of intentio
           title: 'The 90-Second Breathing Reset',
           content: `This technique activates your parasympathetic nervous system in just 90 seconds:
 
-Steps:
-1. Find a comfortable position (sitting or standing)
-2. Place one hand on chest, one on belly
-3. Breathe in slowly through nose (4 counts)
-4. Hold breath gently (4 counts)
-5. Exhale slowly through mouth (6 counts)
-6. Repeat for 6-8 cycles
+          Steps:
+          1. Find a comfortable position (sitting or standing)
+          2. Place one hand on chest, one on belly
+          3. Breathe in slowly through nose (4 counts)
+          4. Hold breath gently (4 counts)
+          5. Exhale slowly through mouth (6 counts)
+          6. Repeat for 6-8 cycles
 
-When to use:
-- Before entering a patient room
-- After a difficult conversation
-- During transitions between tasks
-- When feeling overwhelmed`,
+          When to use:
+          - Before entering a patient room
+          - After a difficult conversation
+          - During transitions between tasks
+          - When feeling overwhelmed`,
           duration: '2 min',
           type: 'exercise',
           keyTakeaways: [
@@ -231,18 +231,18 @@ When to use:
           title: '5-4-3-2-1 Grounding Technique',
           content: `When stress or anxiety peaks, this grounding technique brings you back to the present moment:
 
-The 5-4-3-2-1 Method:
-- 5 things you can SEE (clock, chair, pen, etc.)
-- 4 things you can TOUCH (fabric, table surface, etc.)
-- 3 things you can HEAR (air conditioning, voices, etc.)
-- 2 things you can SMELL (coffee, sanitizer, etc.)
-- 1 thing you can TASTE (mint, water, etc.)
+          The 5-4-3-2-1 Method:
+          - 5 things you can SEE (clock, chair, pen, etc.)
+          - 4 things you can TOUCH (fabric, table surface, etc.)
+          - 3 things you can HEAR (air conditioning, voices, etc.)
+          - 2 things you can SMELL (coffee, sanitizer, etc.)
+          - 1 thing you can TASTE (mint, water, etc.)
 
-This technique:
-- Interrupts the stress response
-- Grounds you in sensory experience
-- Can be done silently anywhere
-- Takes 60-90 seconds`,
+          This technique:
+          - Interrupts the stress response
+          - Grounds you in sensory experience
+          - Can be done silently anywhere
+          - Takes 60-90 seconds`,
           duration: '2 min',
           type: 'exercise',
           keyTakeaways: [
@@ -261,22 +261,22 @@ This technique:
           title: 'Strategic Micro-Breaks',
           content: `Research shows that strategic 30-60 second breaks can dramatically reduce fatigue and improve performance:
 
-Micro-Break Ideas:
-- Shoulder rolls and neck stretches
-- Three deep breaths with extended exhales
-- Brief positive self-talk or affirmation
-- Look out a window or at nature photos
-- Quick hand and wrist stretches
-- Mindful sip of water or tea
+          Micro-Break Ideas:
+          - Shoulder rolls and neck stretches
+          - Three deep breaths with extended exhales
+          - Brief positive self-talk or affirmation
+          - Look out a window or at nature photos
+          - Quick hand and wrist stretches
+          - Mindful sip of water or tea
 
-Timing Your Breaks:
-- Between patient encounters
-- After completing documentation
-- Before difficult conversations
-- During long procedures (when safe)
-- At natural transition points
+          Timing Your Breaks:
+          - Between patient encounters
+          - After completing documentation
+          - Before difficult conversations
+          - During long procedures (when safe)
+          - At natural transition points
 
-The key is consistency, not duration.`,
+          The key is consistency, not duration.`,
           duration: '3 min',
           type: 'reading',
           keyTakeaways: [
@@ -295,18 +295,18 @@ The key is consistency, not duration.`,
           title: 'Positive Anchoring Technique',
           content: `Create positive emotional anchors that can instantly shift your mental state during challenging moments:
 
-Creating Your Anchor:
-1. Think of a recent positive moment at work (successful patient outcome, colleague appreciation, etc.)
-2. Relive it vividly - see what you saw, hear what you heard, feel what you felt
-3. While experiencing these positive emotions, create a physical anchor (touch thumb to index finger, place hand on heart, etc.)
-4. Hold for 10-15 seconds while maintaining the positive emotions
-5. Release and repeat 3-4 times
+          Creating Your Anchor:
+          1. Think of a recent positive moment at work (successful patient outcome, colleague appreciation, etc.)
+          2. Relive it vividly - see what you saw, hear what you heard, feel what you felt
+          3. While experiencing these positive emotions, create a physical anchor (touch thumb to index finger, place hand on heart, etc.)
+          4. Hold for 10-15 seconds while maintaining the positive emotions
+          5. Release and repeat 3-4 times
 
-Using Your Anchor:
-- Activate it before stressful situations
-- Use it after difficult encounters
-- Practice it during calm moments to strengthen the association
-- Share the technique with your team`,
+          Using Your Anchor:
+          - Activate it before stressful situations
+          - Use it after difficult encounters
+          - Practice it during calm moments to strengthen the association
+          - Share the technique with your team`,
           duration: '4 min',
           type: 'interactive',
           keyTakeaways: [
@@ -325,22 +325,22 @@ Using Your Anchor:
           title: 'Micro-Gratitude Practice',
           content: `Even 30 seconds of gratitude practice can shift your neurochemistry and improve resilience:
 
-The 3-Breath Gratitude Practice:
-- Breath 1: Think of something about your work that you're grateful for
-- Breath 2: Think of a colleague or patient you appreciate
-- Breath 3: Think of something about yourself as a healthcare professional that you value
+          The 3-Breath Gratitude Practice:
+          - Breath 1: Think of something about your work that you're grateful for
+          - Breath 2: Think of a colleague or patient you appreciate
+          - Breath 3: Think of something about yourself as a healthcare professional that you value
 
-Advanced Technique - Gratitude Jar:
-- Keep a small notebook or phone note
-- Add one quick gratitude note per shift
-- Review during difficult days
-- Share positive entries with your team
+          Advanced Technique - Gratitude Jar:
+          - Keep a small notebook or phone note
+          - Add one quick gratitude note per shift
+          - Review during difficult days
+          - Share positive entries with your team
 
-Why It Works:
-- Activates positive neural pathways
-- Counters negativity bias
-- Improves mood and job satisfaction
-- Builds psychological resilience over time`,
+          Why It Works:
+          - Activates positive neural pathways
+          - Counters negativity bias
+          - Improves mood and job satisfaction
+          - Builds psychological resilience over time`,
           duration: '2 min',
           type: 'exercise',
           keyTakeaways: [
@@ -363,21 +363,21 @@ Why It Works:
           title: 'Rediscovering Your Why',
           content: `When burnout sets in, we often lose connection with the deeper reasons we chose healthcare. Reconnecting with your "why" is one of the most powerful burnout prevention strategies.
 
-Your "why" might include:
-- Desire to heal and help others
-- Interest in medical science and problem-solving
-- Want to make a meaningful difference
-- Personal experiences that drew you to medicine
-- Values like compassion, service, or excellence
+          Your "why" might include:
+          - Desire to heal and help others
+          - Interest in medical science and problem-solving
+          - Want to make a meaningful difference
+          - Personal experiences that drew you to medicine
+          - Values like compassion, service, or excellence
 
-Research shows that healthcare professionals with a strong sense of purpose experience:
-- Lower rates of burnout
-- Higher job satisfaction
-- Better patient outcomes
-- Increased resilience during difficult times
-- Greater career longevity
+          Research shows that healthcare professionals with a strong sense of purpose experience:
+          - Lower rates of burnout
+          - Higher job satisfaction
+          - Better patient outcomes
+          - Increased resilience during difficult times
+          - Greater career longevity
 
-The goal isn't to recreate your original motivation, but to evolve and deepen your understanding of what gives your work meaning today.`,
+          The goal isn't to recreate your original motivation, but to evolve and deepen your understanding of what gives your work meaning today.`,
           duration: '4 min',
           type: 'reading',
           keyTakeaways: [
@@ -391,26 +391,26 @@ The goal isn't to recreate your original motivation, but to evolve and deepen yo
           title: 'Core Values Assessment',
           content: `Understanding your core values helps align your daily work with what matters most to you:
 
-Common Healthcare Values:
-- Compassion and empathy
-- Excellence and competence
-- Service to others
-- Scientific curiosity
-- Healing and restoration
-- Justice and advocacy
-- Collaboration and teamwork
-- Integrity and honesty
-- Innovation and progress
-- Work-life balance
+          Common Healthcare Values:
+          - Compassion and empathy
+          - Excellence and competence
+          - Service to others
+          - Scientific curiosity
+          - Healing and restoration
+          - Justice and advocacy
+          - Collaboration and teamwork
+          - Integrity and honesty
+          - Innovation and progress
+          - Work-life balance
 
-Values Reflection Exercise:
-1. From the list above (and others you think of), identify your top 5 values
-2. Rank them in order of importance to you personally
-3. For each top value, write one sentence about why it matters to you
-4. Consider how well your current work aligns with these values
-5. Identify areas where you might better express your values
+          Values Reflection Exercise:
+          1. From the list above (and others you think of), identify your top 5 values
+          2. Rank them in order of importance to you personally
+          3. For each top value, write one sentence about why it matters to you
+          4. Consider how well your current work aligns with these values
+          5. Identify areas where you might better express your values
 
-Remember: There are no "right" or "wrong" values - only what's authentic to you.`,
+          Remember: There are no "right" or "wrong" values - only what's authentic to you.`,
           duration: '6 min',
           type: 'interactive',
           keyTakeaways: [
@@ -429,28 +429,28 @@ Remember: There are no "right" or "wrong" values - only what's authentic to you.
           title: 'Daily Meaning-Making Practices',
           content: `Small daily practices can help you stay connected to the meaning in your work:
 
-End-of-Shift Reflection:
-- What went well today?
-- How did I make a difference (however small)?
-- What am I learning or growing in?
-- What am I grateful for from today?
+          End-of-Shift Reflection:
+          - What went well today?
+          - How did I make a difference (however small)?
+          - What am I learning or growing in?
+          - What am I grateful for from today?
 
-Patient Impact Journaling:
-- Keep brief notes about positive patient interactions
-- Record thank you messages or feedback
-- Document successful outcomes you contributed to
-- Note moments when you embodied your values
+          Patient Impact Journaling:
+          - Keep brief notes about positive patient interactions
+          - Record thank you messages or feedback
+          - Document successful outcomes you contributed to
+          - Note moments when you embodied your values
 
-Team Connection:
-- Acknowledge colleagues' contributions
-- Share positive patient stories
-- Celebrate small wins together
-- Discuss what gives your work meaning
+          Team Connection:
+          - Acknowledge colleagues' contributions
+          - Share positive patient stories
+          - Celebrate small wins together
+          - Discuss what gives your work meaning
 
-Legacy Thinking:
-- How do you want to be remembered as a healthcare professional?
-- What impact do you want to have on patients, colleagues, and the profession?
-- What would you tell your younger self starting in healthcare?`,
+          Legacy Thinking:
+          - How do you want to be remembered as a healthcare professional?
+          - What impact do you want to have on patients, colleagues, and the profession?
+          - What would you tell your younger self starting in healthcare?`,
           duration: '5 min',
           type: 'reading',
           keyTakeaways: [
@@ -469,28 +469,28 @@ Legacy Thinking:
           title: 'Aligning with Your Personal Mission',
           content: `Creating a personal mission statement for your healthcare career provides a north star during difficult times:
 
-Elements of a Healthcare Mission Statement:
-- Who you serve (patients, families, communities)
-- How you serve (your unique approach or style)
-- What impact you want to have
-- What values guide your practice
-- What legacy you want to leave
+          Elements of a Healthcare Mission Statement:
+          - Who you serve (patients, families, communities)
+          - How you serve (your unique approach or style)
+          - What impact you want to have
+          - What values guide your practice
+          - What legacy you want to leave
 
-Sample Mission Statements:
-"To provide compassionate, evidence-based care that honors each patient's dignity while continuously growing in knowledge and wisdom."
+          Sample Mission Statements:
+          "To provide compassionate, evidence-based care that honors each patient's dignity while continuously growing in knowledge and wisdom."
 
-"To be a healing presence in moments of vulnerability, using my skills to restore health and hope while supporting my colleagues in our shared mission."
+          "To be a healing presence in moments of vulnerability, using my skills to restore health and hope while supporting my colleagues in our shared mission."
 
-"To advocate for patients and families through excellent clinical care, clear communication, and systemic improvements that benefit all."
+          "To advocate for patients and families through excellent clinical care, clear communication, and systemic improvements that benefit all."
 
-Mission Statement Exercise:
-1. Write your first draft in 2-3 sentences
-2. Review and refine over several days
-3. Share with a mentor or trusted colleague for feedback
-4. Post it somewhere you'll see it regularly
-5. Review and update annually
+          Mission Statement Exercise:
+          1. Write your first draft in 2-3 sentences
+          2. Review and refine over several days
+          3. Share with a mentor or trusted colleague for feedback
+          4. Post it somewhere you'll see it regularly
+          5. Review and update annually
 
-Your mission should inspire you and feel authentic to who you are as a professional.`,
+          Your mission should inspire you and feel authentic to who you are as a professional.`,
           duration: '7 min',
           type: 'interactive',
           keyTakeaways: [
@@ -509,28 +509,28 @@ Your mission should inspire you and feel authentic to who you are as a professio
           title: 'Finding Purpose in Difficult Moments',
           content: `Healthcare involves inevitable difficult moments. Finding purpose in these challenges is key to resilience:
 
-Reframing Difficult Experiences:
-- What is this situation teaching me?
-- How is this building my competence or character?
-- What would I want someone to do for my family member in this situation?
-- How can I honor the trust patients place in me?
-- What small comfort or dignity can I provide?
+          Reframing Difficult Experiences:
+          - What is this situation teaching me?
+          - How is this building my competence or character?
+          - What would I want someone to do for my family member in this situation?
+          - How can I honor the trust patients place in me?
+          - What small comfort or dignity can I provide?
 
-Growth Mindset in Healthcare:
-- Challenges are opportunities to develop skills
-- Mistakes are learning opportunities (within safe practice)
-- Difficult patients often have unmet needs
-- System frustrations can motivate positive change
-- Suffering can deepen empathy and wisdom
+          Growth Mindset in Healthcare:
+          - Challenges are opportunities to develop skills
+          - Mistakes are learning opportunities (within safe practice)
+          - Difficult patients often have unmet needs
+          - System frustrations can motivate positive change
+          - Suffering can deepen empathy and wisdom
 
-Finding Meaning in Loss:
-- Each life has value regardless of outcome
-- Providing comfort in suffering has inherent worth
-- Being present in someone's final moments is sacred
-- Supporting families through grief is meaningful service
-- Honoring patients' dignity even in death
+          Finding Meaning in Loss:
+          - Each life has value regardless of outcome
+          - Providing comfort in suffering has inherent worth
+          - Being present in someone's final moments is sacred
+          - Supporting families through grief is meaningful service
+          - Honoring patients' dignity even in death
 
-Remember: You don't have to fix everything to make a difference. Sometimes your presence and care are the healing.`,
+          Remember: You don't have to fix everything to make a difference. Sometimes your presence and care are the healing.`,
           duration: '6 min',
           type: 'reading',
           keyTakeaways: [
@@ -553,32 +553,32 @@ Remember: You don't have to fix everything to make a difference. Sometimes your 
           title: '5-Minute Energy Reset Protocol',
           content: `This evidence-based breathing sequence is designed to quickly restore energy and mental clarity:
 
-The Complete Protocol (5 minutes):
+          The Complete Protocol (5 minutes):
 
-Phase 1: Centering (1 minute)
-- Sit or stand comfortably
-- Close eyes or soften gaze
-- Take 5 natural breaths, just noticing your current state
+          Phase 1: Centering (1 minute)
+          - Sit or stand comfortably
+          - Close eyes or soften gaze
+          - Take 5 natural breaths, just noticing your current state
 
-Phase 2: Energizing Breath (2 minutes)
-- Inhale for 4 counts through nose
-- Hold for 2 counts
-- Exhale for 4 counts through mouth
-- Repeat for 15-20 cycles
-- Focus on filling your belly, then chest
+          Phase 2: Energizing Breath (2 minutes)
+          - Inhale for 4 counts through nose
+          - Hold for 2 counts
+          - Exhale for 4 counts through mouth
+          - Repeat for 15-20 cycles
+          - Focus on filling your belly, then chest
 
-Phase 3: Balancing Breath (1.5 minutes)
-- Inhale for 4 counts
-- Hold for 4 counts
-- Exhale for 6 counts
-- Repeat for 8-10 cycles
+          Phase 3: Balancing Breath (1.5 minutes)
+          - Inhale for 4 counts
+          - Hold for 4 counts
+          - Exhale for 6 counts
+          - Repeat for 8-10 cycles
 
-Phase 4: Integration (30 seconds)
-- Return to natural breathing
-- Notice any changes in energy, clarity, or mood
-- Set an intention for the next part of your day
+          Phase 4: Integration (30 seconds)
+          - Return to natural breathing
+          - Notice any changes in energy, clarity, or mood
+          - Set an intention for the next part of your day
 
-This protocol activates the parasympathetic nervous system while providing an energy boost through improved oxygenation.`,
+          This protocol activates the parasympathetic nervous system while providing an energy boost through improved oxygenation.`,
           duration: '5 min',
           type: 'exercise',
           keyTakeaways: [
@@ -601,13 +601,13 @@ This protocol activates the parasympathetic nervous system while providing an en
           title: 'Course Content Coming Soon',
           content: `This course is currently being developed by our team of healthcare professionals and burnout prevention experts.
 
-Content will include:
-- Evidence-based strategies
-- Practical exercises
-- Real-world case studies
-- Interactive assessments
+          Content will include:
+          - Evidence-based strategies
+          - Practical exercises
+          - Real-world case studies
+          - Interactive assessments
 
-Check back soon for the complete course content!`,
+          Check back soon for the complete course content!`,
           duration: '1 min',
           type: 'reading',
           keyTakeaways: [
