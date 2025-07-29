@@ -1,48 +1,3 @@
-// import axios from 'axios';
-// import api from './api';
-
-// const API_URL = 'http://127.0.0.1:8080';
-
-// export const register = async (email: string, password: string) => {
-//     const response = await api.post('/users/register', null, { params: { email, password } });
-//     return response.data;
-// };
-
-// // export const login = async (email: string, password: string) => {
-// //     email = email.toLowerCase();
-// //     const response = await axios.post(`${API_URL}/login`, null, { params: { email, password } });
-// //     return response.data;
-// // };
-
-// export const login = async (email: string, password: string) => {
-//     const formData = new FormData();
-//     formData.append('username', email);
-//     formData.append('password', password);
-  
-//     const response = await api.post('/users/login', formData, {
-//       headers: {
-//         'Content-Type': 'multipart/form-data',
-//       },
-//     });
-  
-//     return response.data;
-//   };
-// // export async function login(email: string, password: string) {
-// //     email = email.toLowerCase();
-
-// //     console.log('Logging in with email:', email);
-// //     console.log('Logging in with password:', password ? '******' : 'No password provided');
-// //     const response = await api.post('/users/login', { email, password });
-// //     if (response.status !== 200) {
-// //         console.error('Login failed:', response.data);
-// //         throw new Error(`Login failed resean: ${response.data.detail || 'Unknown error'}`);
-// //     }
-// //     return response.data;
-// //   }
-
-
-
-
 import api from './api';
 
 interface RegisterData {
@@ -69,33 +24,84 @@ interface RegisterResponse {
   id: string;
   email: string;
   name: string;
-  message: string;
+  birthday?: string;
+  specialty?: string;
+  created_at: string;
 }
 
 export const register = async (userData: RegisterData): Promise<RegisterResponse> => {
   try {
-    const response = await api.post('/users/register', {
-      email: userData.email.toLowerCase(),
+    console.log('Registering user with data:', userData);
+    
+    // Format the request payload to match your backend UserCreate schema
+    const payload = {
+      email: userData.email.toLowerCase().trim(),
       password: userData.password,
-      name: userData.name,
+      name: userData.name.trim(),
       birthday: userData.birthday || null,
-      specialty: userData.specialty || null,
-    });
+      specialty: userData.specialty?.trim() || null,
+      created_at: new Date().toISOString(),
+    };
+
+    console.log('Sending registration payload:', { ...payload, password: '[HIDDEN]' });
+
+    const response = await api.post('/users/register', payload);
+    
+    console.log('Registration response:', response.data);
     return response.data;
   } catch (error: any) {
     console.error('Registration error:', error);
-    throw new Error(
-      error.response?.data?.detail || 
-      'Registration failed. Please try again.'
-    );
+    console.error('Error response:', error?.response?.data);
+    
+    // Handle different types of errors
+    if (error.response?.status === 400 && error.response?.data?.detail === "Email already registered") {
+      throw new Error('This email is already registered. Please try logging in instead.');
+    } else if (error.response?.status === 422) {
+      // Validation error
+      const detail = error.response?.data?.detail;
+      if (Array.isArray(detail)) {
+        // Handle Pydantic validation errors
+        const errorMessages = detail.map((err: any) => 
+          `${err.loc?.join(' ')}: ${err.msg}`
+        ).join(', ');
+        throw new Error(`Validation error: ${errorMessages}`);
+      } else {
+        throw new Error(detail || 'Invalid data provided');
+      }
+    } else if (error.response?.data?.detail) {
+      throw new Error(error.response.data.detail);
+    } else if (error.code === 'NETWORK_ERROR' || error.message.includes('Network')) {
+      throw new Error('Network error. Please check your connection and try again.');
+    } else {
+      throw new Error('Registration failed. Please try again.');
+    }
+  }
+};
+
+// New function to register and auto-login
+export const registerAndLogin = async (userData: RegisterData): Promise<LoginResponse> => {
+  try {
+    // First, register the user
+    await register(userData);
+    
+    // Then automatically log them in
+    const loginResponse = await login(userData.email, userData.password);
+    
+    return loginResponse;
+  } catch (error: any) {
+    // If registration fails, throw that error
+    // If login fails after successful registration, throw login error
+    throw error;
   }
 };
 
 export const login = async (email: string, password: string): Promise<LoginResponse> => {
   try {
+    console.log('Logging in with email:', email);
+    
     // Create FormData for the login endpoint
     const formData = new FormData();
-    formData.append('username', email.toLowerCase()); // FastAPI OAuth2 expects 'username'
+    formData.append('username', email.toLowerCase().trim()); // FastAPI OAuth2 expects 'username'
     formData.append('password', password);
 
     const response = await api.post('/users/login', formData, {
@@ -103,6 +109,8 @@ export const login = async (email: string, password: string): Promise<LoginRespo
         'Content-Type': 'multipart/form-data',
       },
     });
+
+    console.log('Login response:', response.data);
 
     // Validate response structure
     if (!response.data?.access_token) {
