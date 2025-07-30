@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  Image,
 } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -41,6 +42,16 @@ const moodColors: Record<string, string> = {
   Stressed: colors.stressed,
   Tired: colors.tired,
   Anxious: colors.anxious,
+};
+
+// Add mood images mapping - same as in MoodSelector component
+const moodImages: Record<string, any> = {
+  Excellent: require('../../assets/moods/content.png'),
+  Good: require('../../assets/moods/happy.png'),
+  Okay: require('../../assets/moods/neutral.png'),
+  Stressed: require('../../assets/moods/angry.png'),
+  Tired: require('../../assets/moods/tired.png'),
+  Anxious: require('../../assets/moods/sad.png'),
 };
 
 export default function MoodHistoryScreen({ navigation }: any) {
@@ -201,11 +212,6 @@ export default function MoodHistoryScreen({ navigation }: any) {
             </Text>
             <Text style={styles.statLabel}>Most Common</Text>
           </View>
-          
-          {/* <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{stats.averageScore}</Text>
-            <Text style={styles.statLabel}>Avg Score</Text>
-          </View> */}
         </View>
       </View>
     );
@@ -288,14 +294,12 @@ export default function MoodHistoryScreen({ navigation }: any) {
                   styles.moodIndicator, 
                   { backgroundColor: moodColors[mood.mood] || colors.primary }
                 ]}>
-                  <Text style={styles.moodEmoji}>
-                    {mood.mood === 'Excellent' ? '😊' :
-                     mood.mood === 'Good' ? '🙂' :
-                     mood.mood === 'Okay' ? '😐' :
-                     mood.mood === 'Stressed' ? '😰' :
-                     mood.mood === 'Tired' ? '😴' :
-                     mood.mood === 'Anxious' ? '😟' : '🙂'}
-                  </Text>
+                  {/* Replace emoji with actual mood image */}
+                  <Image 
+                    source={moodImages[mood.mood]} 
+                    style={styles.moodImage}
+                    resizeMode="contain"
+                  />
                 </View>
                 
                 <View style={styles.moodInfo}>
@@ -510,9 +514,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
+    padding: 4, // Add padding for the image
   },
-  moodEmoji: {
-    fontSize: 20,
+  // Add styles for the mood image
+  moodImage: {
+    width: 32,
+    height: 32,
   },
   moodInfo: {
     flex: 1,
