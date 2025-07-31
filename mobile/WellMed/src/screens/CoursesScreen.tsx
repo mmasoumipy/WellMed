@@ -5,261 +5,56 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Dimensions,
   Alert,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { colors } from '../constants/colors';
-
-const { width } = Dimensions.get('window');
-
-interface Course {
-  id: string;
-  title: string;
-  description: string;
-  duration: string;
-  difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
-  icon: string;
-  color: string;
-  modules: number;
-  completed?: boolean;
-  progress?: number;
-}
-
-interface CourseCategory {
-  id: string;
-  title: string;
-  description: string;
-  courses: Course[];
-}
-
-const coreModules: Course[] = [
-  {
-    id: 'burnout-basics',
-    title: 'What is Burnout?',
-    description: 'Understanding the signs, symptoms, and science behind physician burnout',
-    duration: '15 min',
-    difficulty: 'Beginner',
-    icon: 'information-circle-outline',
-    color: colors.primary,
-    modules: 4,
-  },
-  {
-    id: 'values-based-prevention',
-    title: 'Know Your Why: Values-Based Burnout Prevention',
-    description: 'Reconnect with your core values and purpose in medicine',
-    duration: '20 min',
-    difficulty: 'Beginner',
-    icon: 'heart-outline',
-    color: colors.success,
-    modules: 5,
-  },
-  {
-    id: 'stress-signals',
-    title: 'Stress Signals: Recognizing Your Personal Warning Signs',
-    description: 'Learn to identify early warning signs before burnout takes hold',
-    duration: '18 min',
-    difficulty: 'Intermediate',
-    icon: 'warning-outline',
-    color: colors.warning,
-    modules: 4,
-  },
-  {
-    id: 'micro-resilience',
-    title: 'Micro-Resilience: Two-Minute Stress Reducers',
-    description: 'Quick, evidence-based techniques you can use anywhere',
-    duration: '12 min',
-    difficulty: 'Beginner',
-    icon: 'flash-outline',
-    color: colors.accent,
-    modules: 6,
-  },
-  {
-    id: 'sleep-hygiene',
-    title: 'Sleep Hygiene for Shift Workers',
-    description: 'Optimize your sleep despite irregular schedules',
-    duration: '25 min',
-    difficulty: 'Intermediate',
-    icon: 'moon-outline',
-    color: colors.secondary,
-    modules: 5,
-  },
-  {
-    id: 'boundaries',
-    title: 'Boundaries: The Art of Compassionate Limits',
-    description: 'Set healthy boundaries while maintaining excellent patient care',
-    duration: '22 min',
-    difficulty: 'Intermediate',
-    icon: 'shield-outline',
-    color: colors.error,
-    modules: 4,
-  },
-  {
-    id: 'positive-reframing',
-    title: 'Positive Reframing: Cognitive Strategies for Stressful Situations',
-    description: 'Transform negative thought patterns into resilient mindsets',
-    duration: '30 min',
-    difficulty: 'Advanced',
-    icon: 'refresh-outline',
-    color: colors.thirdary,
-    modules: 6,
-  },
-  {
-    id: 'delegation',
-    title: 'Effective Delegation: Working Smarter, Not Harder',
-    description: 'Master the art of delegation without compromising quality',
-    duration: '20 min',
-    difficulty: 'Intermediate',
-    icon: 'people-outline',
-    color: colors.primary,
-    modules: 4,
-  },
-  {
-    id: 'emotion-regulation',
-    title: 'Emotion Regulation for High-Stress Environments',
-    description: 'Manage intense emotions in critical care situations',
-    duration: '28 min',
-    difficulty: 'Advanced',
-    icon: 'pulse-outline',
-    color: colors.error,
-    modules: 5,
-  },
-];
-
-const quickWinsCourses: Course[] = [
-  {
-    id: 'quick-breathing',
-    title: '5-Minute Energy Reset',
-    description: 'Quick breathing exercises for instant stress relief',
-    duration: '5 min',
-    difficulty: 'Beginner',
-    icon: 'leaf-outline',
-    color: colors.success,
-    modules: 1,
-  },
-  {
-    id: 'quick-mindfulness',
-    title: 'Mindful Transitions',
-    description: 'Brief mindfulness practices between patients',
-    duration: '3 min',
-    difficulty: 'Beginner',
-    icon: 'eye-outline',
-    color: colors.secondary,
-    modules: 1,
-  },
-  {
-    id: 'quick-posture',
-    title: 'Posture Power-Up',
-    description: 'Combat fatigue with quick posture corrections',
-    duration: '4 min',
-    difficulty: 'Beginner',
-    icon: 'body-outline',
-    color: colors.warning,
-    modules: 1,
-  },
-  {
-    id: 'quick-gratitude',
-    title: 'Gratitude Boost',
-    description: 'Instant mood lifter for difficult days',
-    duration: '2 min',
-    difficulty: 'Beginner',
-    icon: 'sunny-outline',
-    color: colors.accent,
-    modules: 1,
-  },
-];
-
-const specialtyCourses: Course[] = [
-  {
-    id: 'icu-specific',
-    title: 'ICU Resilience Strategies',
-    description: 'Specialized approaches for intensive care professionals',
-    duration: '35 min',
-    difficulty: 'Advanced',
-    icon: 'medical-outline',
-    color: colors.error,
-    modules: 7,
-  },
-  {
-    id: 'emergency-medicine',
-    title: 'Emergency Medicine Wellness',
-    description: 'Managing the unique stressors of emergency medicine',
-    duration: '32 min',
-    difficulty: 'Advanced',
-    icon: 'thunderstorm-outline',
-    color: colors.warning,
-    modules: 6,
-  },
-  {
-    id: 'nursing-wellness',
-    title: 'Nursing Self-Care Essentials',
-    description: 'Tailored wellness strategies for nursing professionals',
-    duration: '28 min',
-    difficulty: 'Intermediate',
-    icon: 'heart-circle-outline',
-    color: colors.primary,
-    modules: 5,
-  },
-  {
-    id: 'surgery-wellness',
-    title: 'Surgical Team Wellness',
-    description: 'Stress management for high-pressure surgical environments',
-    duration: '30 min',
-    difficulty: 'Advanced',
-    icon: 'cut-outline',
-    color: colors.secondary,
-    modules: 6,
-  },
-];
-
-const courseCategories: CourseCategory[] = [
-  {
-    id: 'core',
-    title: 'Core Burnout Prevention',
-    description: 'Essential modules for every healthcare professional',
-    courses: coreModules,
-  },
-  {
-    id: 'quick-wins',
-    title: 'Quick Wins Mini-Courses',
-    description: 'Immediate strategies for breaks or between shifts',
-    courses: quickWinsCourses,
-  },
-  {
-    id: 'specialty',
-    title: 'Specialty-Specific Courses',
-    description: 'Tailored content for different healthcare roles',
-    courses: specialtyCourses,
-  },
-];
+import { courseAPI, Course, CourseCategory, CourseStats } from '../api/courses';
 
 export default function CoursesScreen({ navigation }: any) {
-  const [completedCourses, setCompletedCourses] = useState<Set<string>>(new Set());
-  const [courseProgress, setCourseProgress] = useState<Record<string, number>>({});
+  const [courseCategories, setCourseCategories] = useState<CourseCategory[]>([]);
+  const [courseStats, setCourseStats] = useState<CourseStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    loadProgress();
+    loadCoursesData();
   }, []);
 
-  const loadProgress = async () => {
+  const loadCoursesData = async () => {
     try {
-      const completed = await AsyncStorage.getItem('completedCourses');
-      const progress = await AsyncStorage.getItem('courseProgress');
-      
-      if (completed) {
-        setCompletedCourses(new Set(JSON.parse(completed)));
+      const userId = await AsyncStorage.getItem('userId');
+      if (!userId) {
+        Alert.alert('Error', 'User not found. Please log in again.');
+        return;
       }
-      if (progress) {
-        setCourseProgress(JSON.parse(progress));
-      }
-    } catch (error) {
-      console.error('Error loading course progress:', error);
+
+      // Load courses by category and stats in parallel
+      const [categoriesData, statsData] = await Promise.all([
+        courseAPI.getCoursesByCategory(userId),
+        courseAPI.getUserCourseStats(userId)
+      ]);
+
+      setCourseCategories(categoriesData);
+      setCourseStats(statsData);
+    } catch (error: any) {
+      console.error('Error loading courses data:', error);
+      Alert.alert(
+        'Error', 
+        'Could not load courses. Please check your connection and try again.'
+      );
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadCoursesData();
   };
 
   const getDifficultyColor = (difficulty: string) => {
@@ -271,25 +66,68 @@ export default function CoursesScreen({ navigation }: any) {
     }
   };
 
-  const startCourse = (course: Course) => {
-    Alert.alert(
-      `Start ${course.title}?`,
-      `This course takes approximately ${course.duration} and contains ${course.modules} module${course.modules > 1 ? 's' : ''}.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Start Course',
-          onPress: () => {
-            navigation.navigate('CourseContent', { course });
-          },
-        },
-      ]
+  const startCourse = async (course: Course) => {
+    try {
+      const userId = await AsyncStorage.getItem('userId');
+      if (!userId) {
+        Alert.alert('Error', 'User not found. Please log in again.');
+        return;
+      }
+
+      // Start the course if not already started
+      if (!course.progress_percentage || course.progress_percentage === 0) {
+        await courseAPI.startCourse(userId, course.id);
+      }
+
+      // Navigate to course content
+      navigation.navigate('CourseContent', { course });
+    } catch (error) {
+      console.error('Error starting course:', error);
+      // Still navigate even if API call fails
+      navigation.navigate('CourseContent', { course });
+    }
+  };
+
+  const renderProgressSummary = () => {
+    if (!courseStats) return null;
+
+    return (
+      <View style={styles.progressSummary}>
+        <View style={styles.summaryHeader}>
+          <Ionicons name="school-outline" size={24} color={colors.primary} />
+          <Text style={styles.summaryTitle}>Your Learning Progress</Text>
+        </View>
+        
+        <View style={styles.summaryStats}>
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{courseStats.completed_courses}</Text>
+            <Text style={styles.statLabel}>Completed</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{courseStats.total_courses}</Text>
+            <Text style={styles.statLabel}>Total Courses</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{Math.round(courseStats.overall_progress_percentage)}%</Text>
+            <Text style={styles.statLabel}>Overall</Text>
+          </View>
+        </View>
+        
+        <View style={styles.overallProgressBar}>
+          <View style={[
+            styles.overallProgressFill, 
+            { width: `${courseStats.overall_progress_percentage}%` }
+          ]} />
+        </View>
+      </View>
     );
   };
 
   const renderCourseCard = (course: Course) => {
-    const isCompleted = completedCourses.has(course.id);
-    const progress = courseProgress[course.id] || 0;
+    const isCompleted = course.is_completed;
+    const progress = course.progress_percentage || 0;
     
     return (
       <TouchableOpacity
@@ -307,7 +145,7 @@ export default function CoursesScreen({ navigation }: any) {
               {course.title}
             </Text>
             <Text style={styles.courseDuration}>
-              {course.duration} • {course.modules} module{course.modules > 1 ? 's' : ''}
+              {course.duration} • {course.modules_count} module{course.modules_count > 1 ? 's' : ''}
             </Text>
           </View>
           <View style={styles.courseStatus}>
@@ -355,42 +193,6 @@ export default function CoursesScreen({ navigation }: any) {
     </View>
   );
 
-  const renderProgressSummary = () => {
-    const totalCourses = [...coreModules, ...quickWinsCourses, ...specialtyCourses].length;
-    const completedCount = completedCourses.size;
-    const overallProgress = totalCourses > 0 ? (completedCount / totalCourses) * 100 : 0;
-
-    return (
-      <View style={styles.progressSummary}>
-        <View style={styles.summaryHeader}>
-          <Ionicons name="school-outline" size={24} color={colors.primary} />
-          <Text style={styles.summaryTitle}>Your Learning Progress</Text>
-        </View>
-        
-        <View style={styles.summaryStats}>
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{completedCount}</Text>
-            <Text style={styles.statLabel}>Completed</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{totalCourses}</Text>
-            <Text style={styles.statLabel}>Total Courses</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{Math.round(overallProgress)}%</Text>
-            <Text style={styles.statLabel}>Overall</Text>
-          </View>
-        </View>
-        
-        <View style={styles.overallProgressBar}>
-          <View style={[styles.overallProgressFill, { width: `${overallProgress}%` }]} />
-        </View>
-      </View>
-    );
-  };
-
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -401,7 +203,13 @@ export default function CoursesScreen({ navigation }: any) {
   }
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView 
+      style={styles.container} 
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+    >
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
@@ -420,7 +228,17 @@ export default function CoursesScreen({ navigation }: any) {
       {renderProgressSummary()}
 
       {/* Course Categories */}
-      {courseCategories.map(renderCategorySection)}
+      {courseCategories.length > 0 ? (
+        courseCategories.map(renderCategorySection)
+      ) : (
+        <View style={styles.emptyState}>
+          <Ionicons name="school-outline" size={64} color={colors.textSecondary} />
+          <Text style={styles.emptyStateTitle}>No courses available</Text>
+          <Text style={styles.emptyStateText}>
+            Check your connection and try refreshing the page.
+          </Text>
+        </View>
+      )}
 
       <View style={styles.bottomSpacer} />
     </ScrollView>
@@ -646,6 +464,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.primary,
+  },
+
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 40,
+  },
+  emptyStateTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.textPrimary,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyStateText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   bottomSpacer: {
     height: 40,

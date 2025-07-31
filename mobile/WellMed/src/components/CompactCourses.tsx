@@ -3,92 +3,59 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'rea
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { colors } from '../constants/colors';
-
-interface FeaturedCourse {
-  id: string;
-  title: string;
-  subtitle: string;
-  icon: string;
-  color: string;
-  duration: string;
-  progress?: number;
-  isCompleted?: boolean;
-}
+import { courseAPI, Course } from '../api/courses';
 
 interface CompactCoursesProps {
   onViewAllCourses: () => void;
-  onStartCourse: (courseId: string) => void;
+  onStartCourse: (courseId: string, course: Course) => void;
 }
 
-const featuredCourses: FeaturedCourse[] = [
-  {
-    id: 'burnout-basics',
-    title: 'What is Burnout?',
-    subtitle: 'Understanding the basics',
-    icon: 'information-circle-outline',
-    color: colors.primary,
-    duration: '15 min',
-  },
-  {
-    id: 'micro-resilience',
-    title: 'Micro-Resilience',
-    subtitle: '2-minute stress reducers',
-    icon: 'flash-outline',
-    color: colors.accent,
-    duration: '12 min',
-  },
-  {
-    id: 'values-based-prevention',
-    title: 'Know Your Why',
-    subtitle: 'Values-based prevention',
-    icon: 'heart-outline',
-    color: colors.success,
-    duration: '20 min',
-  },
-  {
-    id: 'quick-breathing',
-    title: '5-Minute Energy Reset',
-    subtitle: 'Quick wins mini-course',
-    icon: 'leaf-outline',
-    color: colors.secondary,
-    duration: '5 min',
-  },
-];
-
 export default function CompactCourses({ onViewAllCourses, onStartCourse }: CompactCoursesProps) {
-  const [courseProgress, setCourseProgress] = useState<Record<string, number>>({});
-  const [completedCourses, setCompletedCourses] = useState<Set<string>>(new Set());
+  const [featuredCourses, setFeaturedCourses] = useState<Course[]>([]);
+  const [loading, setLoading] = useState(true);
   const [totalCompleted, setTotalCompleted] = useState(0);
+  const [totalCourses, setTotalCourses] = useState(0);
 
   useEffect(() => {
-    loadCourseProgress();
+    loadFeaturedCourses();
   }, []);
 
-  const loadCourseProgress = async () => {
+  const loadFeaturedCourses = async () => {
     try {
-      const [progressData, completedData] = await Promise.all([
-        AsyncStorage.getItem('courseProgress'),
-        AsyncStorage.getItem('completedCourses'),
-      ]);
-
-      if (progressData) {
-        setCourseProgress(JSON.parse(progressData));
+      const userId = await AsyncStorage.getItem('userId');
+      if (!userId) {
+        console.log('No userId found');
+        return;
       }
 
-      if (completedData) {
-        const completedArray: string[] = JSON.parse(completedData);
-        const completed = new Set(completedArray);
-        setCompletedCourses(completed);
-        setTotalCompleted(completed.size);
-      }
+      // Get courses with user progress
+      const coursesWithProgress = await courseAPI.getCoursesWithProgress(userId);
+      
+      // Get featured courses (first 4 courses from different categories)
+      const coreModules = coursesWithProgress.filter(c => c.category === 'core').slice(0, 2);
+      const quickWins = coursesWithProgress.filter(c => c.category === 'quick-wins').slice(0, 1);
+      const specialty = coursesWithProgress.filter(c => c.category === 'specialty').slice(0, 1);
+      
+      const featured = [...coreModules, ...quickWins, ...specialty];
+      setFeaturedCourses(featured);
+
+      // Get stats
+      const stats = await courseAPI.getUserCourseStats(userId);
+      setTotalCompleted(stats.completed_courses);
+      setTotalCourses(stats.total_courses);
+
     } catch (error) {
-      console.error('Error loading course progress:', error);
+      console.error('Error loading courses:', error);
+      // Fallback to empty state or show error
+      setFeaturedCourses([]);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleCoursePress = (course: FeaturedCourse) => {
-    const isCompleted = completedCourses.has(course.id);
-    const progress = courseProgress[course.id] || 0;
+  const handleCoursePress = async (course: Course) => {
+    const isCompleted = course.is_completed;
+    const progress = course.progress_percentage || 0;
 
     if (isCompleted) {
       Alert.alert(
@@ -96,7 +63,7 @@ export default function CompactCourses({ onViewAllCourses, onStartCourse }: Comp
         `You've already completed "${course.title}". Would you like to review it?`,
         [
           { text: 'Not Now', style: 'cancel' },
-          { text: 'Review Course', onPress: () => onStartCourse(course.id) },
+          { text: 'Review Course', onPress: () => onStartCourse(course.id, course) },
         ]
       );
     } else if (progress > 0) {
@@ -105,17 +72,28 @@ export default function CompactCourses({ onViewAllCourses, onStartCourse }: Comp
         `You're ${Math.round(progress)}% through "${course.title}". Continue where you left off?`,
         [
           { text: 'Later', style: 'cancel' },
-          { text: 'Continue', onPress: () => onStartCourse(course.id) },
+          { text: 'Continue', onPress: () => onStartCourse(course.id, course) },
         ]
       );
     } else {
-      onStartCourse(course.id);
+      // Start the course
+      try {
+        const userId = await AsyncStorage.getItem('userId');
+        if (userId) {
+          await courseAPI.startCourse(userId, course.id);
+        }
+        onStartCourse(course.id, course);
+      } catch (error) {
+        console.error('Error starting course:', error);
+        // Still allow navigation even if API call fails
+        onStartCourse(course.id, course);
+      }
     }
   };
 
-  const renderCourseCard = (course: FeaturedCourse) => {
-    const isCompleted = completedCourses.has(course.id);
-    const progress = courseProgress[course.id] || 0;
+  const renderCourseCard = (course: Course) => {
+    const isCompleted = course.is_completed;
+    const progress = course.progress_percentage || 0;
 
     return (
       <TouchableOpacity
@@ -133,7 +111,7 @@ export default function CompactCourses({ onViewAllCourses, onStartCourse }: Comp
             {course.title}
           </Text>
           <Text style={styles.courseSubtitle} numberOfLines={1}>
-            {course.subtitle}
+            {course.description}
           </Text>
           <Text style={styles.courseDuration}>
             {course.duration}
@@ -182,6 +160,22 @@ export default function CompactCourses({ onViewAllCourses, onStartCourse }: Comp
     }
   };
 
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <View style={styles.titleContainer}>
+            <Ionicons name="school-outline" size={20} color={colors.thirdary} />
+            <Text style={styles.title}>Wellness Courses</Text>
+          </View>
+        </View>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading courses...</Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -205,14 +199,21 @@ export default function CompactCourses({ onViewAllCourses, onStartCourse }: Comp
       </Text>
 
       {/* Featured Courses */}
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false}
-        style={styles.coursesScroll}
-        contentContainerStyle={styles.coursesContainer}
-      >
-        {featuredCourses.map(renderCourseCard)}
-      </ScrollView>
+      {featuredCourses.length > 0 ? (
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          style={styles.coursesScroll}
+          contentContainerStyle={styles.coursesContainer}
+        >
+          {featuredCourses.map(renderCourseCard)}
+        </ScrollView>
+      ) : (
+        <View style={styles.emptyState}>
+          <Ionicons name="school-outline" size={48} color={colors.textSecondary} />
+          <Text style={styles.emptyStateText}>No courses available</Text>
+        </View>
+      )}
 
       {/* Footer */}
       <View style={styles.footer}>
@@ -223,7 +224,7 @@ export default function CompactCourses({ onViewAllCourses, onStartCourse }: Comp
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>20+</Text>
+            <Text style={styles.statNumber}>{totalCourses}</Text>
             <Text style={styles.statLabel}>Available</Text>
           </View>
         </View>
@@ -286,6 +287,23 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginBottom: 16,
     fontStyle: 'italic',
+  },
+  loadingContainer: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  emptyState: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  emptyStateText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: 12,
   },
   coursesScroll: {
     marginBottom: 16,

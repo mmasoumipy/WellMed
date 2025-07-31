@@ -16,6 +16,7 @@ import CompactWellnessActivities from '../components/WellnessActivities';
 import CompactAssessments from '../components/CompactAssessments';
 import CompactCourses from '../components/CompactCourses';
 import api from '../api/api';
+import { courseAPI, Course } from '../api/courses';
 
 export default function HomeScreen({ navigation }: any) {
   const [userName, setUserName] = useState<string | null>(null);
@@ -97,56 +98,25 @@ export default function HomeScreen({ navigation }: any) {
     }
   };
 
-  const handleStartCourse = (courseId: string) => {
-    // Create a mock course object for navigation
-    const courseMap: Record<string, any> = {
-      'burnout-basics': {
-        id: 'burnout-basics',
-        title: 'What is Burnout?',
-        description: 'Understanding the signs, symptoms, and science behind physician burnout',
-        duration: '15 min',
-        difficulty: 'Beginner',
-        icon: 'information-circle-outline',
-        color: colors.primary,
-        modules: 4,
-      },
-      'micro-resilience': {
-        id: 'micro-resilience',
-        title: 'Micro-Resilience: Two-Minute Stress Reducers',
-        description: 'Quick, evidence-based techniques you can use anywhere',
-        duration: '12 min',
-        difficulty: 'Beginner',
-        icon: 'flash-outline',
-        color: colors.accent,
-        modules: 6,
-      },
-      'values-based-prevention': {
-        id: 'values-based-prevention',
-        title: 'Know Your Why: Values-Based Burnout Prevention',
-        description: 'Reconnect with your core values and purpose in medicine',
-        duration: '20 min',
-        difficulty: 'Beginner',
-        icon: 'heart-outline',
-        color: colors.success,
-        modules: 5,
-      },
-      'quick-breathing': {
-        id: 'quick-breathing',
-        title: '5-Minute Energy Reset',
-        description: 'Quick breathing exercises for instant stress relief',
-        duration: '5 min',
-        difficulty: 'Beginner',
-        icon: 'leaf-outline',
-        color: colors.success,
-        modules: 1,
-      },
-    };
+  const handleStartCourse = async (courseId: string, course: Course) => {
+    try {
+      const userId = await AsyncStorage.getItem('userId');
+      if (!userId) {
+        Alert.alert('Error', 'User not found. Please log in again.');
+        return;
+      }
 
-    const course = courseMap[courseId];
-    if (course) {
+      // Start the course if not already started
+      if (!course.progress_percentage || course.progress_percentage === 0) {
+        await courseAPI.startCourse(userId, courseId);
+      }
+
+      // Navigate to course content with the course object
       navigation.navigate('CourseContent', { course });
-    } else {
-      Alert.alert('Coming Soon', 'This course is currently being developed!');
+    } catch (error) {
+      console.error('Error starting course:', error);
+      // Still navigate even if API call fails
+      navigation.navigate('CourseContent', { course });
     }
   };
 
@@ -253,7 +223,7 @@ export default function HomeScreen({ navigation }: any) {
         onStreakPress={() => navigation.navigate('Profile')}
       />
 
-      {/* Compact Courses */}
+      {/* Compact Courses - Now using API */}
       <CompactCourses
         onViewAllCourses={() => navigation.navigate('Courses')}
         onStartCourse={handleStartCourse}
