@@ -255,3 +255,139 @@ class WellnessStatsResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# COURSE
+class CourseModuleBase(BaseModel):
+    module_id: str
+    title: str
+    content: str
+    duration: Optional[str] = None
+    module_type: str = 'reading'
+    sort_order: int = 0
+    key_takeaways: Optional[List[str]] = None
+    action_items: Optional[List[str]] = None
+
+class CourseModuleCreate(CourseModuleBase):
+    course_id: str
+
+class CourseModuleOut(CourseModuleBase):
+    id: UUID
+    course_id: str
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+class CourseBase(BaseModel):
+    id: str
+    title: str
+    description: Optional[str] = None
+    duration: Optional[str] = None
+    difficulty: Optional[str] = None
+    icon: Optional[str] = None
+    color: Optional[str] = None
+    category: Optional[str] = None
+    modules_count: int = 1
+    is_active: bool = True
+    sort_order: int = 0
+    image_path: Optional[str] = None
+
+class CourseCreate(CourseBase):
+    modules: Optional[List[CourseModuleBase]] = []
+
+class CourseUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    duration: Optional[str] = None
+    difficulty: Optional[str] = None
+    icon: Optional[str] = None
+    color: Optional[str] = None
+    category: Optional[str] = None
+    modules_count: Optional[int] = None
+    is_active: Optional[bool] = None
+    sort_order: Optional[int] = None
+    image_path: Optional[str] = None
+
+class CourseOut(CourseBase):
+    created_at: datetime
+    updated_at: datetime
+    modules: List[CourseModuleOut] = []
+    
+    class Config:
+        from_attributes = True
+
+class CourseWithProgress(CourseOut):
+    progress_percentage: Optional[float] = 0.0
+    is_completed: Optional[bool] = False
+    last_accessed_at: Optional[datetime] = None
+
+# USER COURSE PROGRESS
+class UserModuleProgressBase(BaseModel):
+    is_completed: bool = False
+    time_spent_seconds: int = 0
+
+class UserModuleProgressCreate(UserModuleProgressBase):
+    user_course_progress_id: UUID
+    module_id: UUID
+
+class UserModuleProgressUpdate(BaseModel):
+    is_completed: Optional[bool] = None
+    time_spent_seconds: Optional[int] = None
+
+class UserModuleProgressOut(UserModuleProgressBase):
+    id: UUID
+    user_course_progress_id: UUID
+    module_id: UUID
+    completion_date: Optional[datetime] = None
+    started_at: datetime
+    completed_at: Optional[datetime] = None
+    
+    class Config:
+        from_attributes = True
+
+class UserCourseProgressBase(BaseModel):
+    progress_percentage: float = 0.0
+    is_completed: bool = False
+
+class UserCourseProgressCreate(UserCourseProgressBase):
+    user_id: UUID
+    course_id: str
+
+class UserCourseProgressUpdate(BaseModel):
+    progress_percentage: Optional[float] = None
+    is_completed: Optional[bool] = None
+    last_accessed_at: Optional[datetime] = None
+
+class UserCourseProgressOut(UserCourseProgressBase):
+    id: UUID
+    user_id: UUID
+    course_id: str
+    completion_date: Optional[datetime] = None
+    started_at: datetime
+    last_accessed_at: datetime
+    module_progresses: List[UserModuleProgressOut] = []
+    
+    class Config:
+        from_attributes = True
+
+# COURSE CATEGORY
+class CourseCategoryOut(BaseModel):
+    id: str
+    title: str
+    description: str
+    courses: List[CourseWithProgress]
+
+# COURSE STATS
+class CourseStatsOut(BaseModel):
+    total_courses: int
+    completed_courses: int
+    in_progress_courses: int
+    total_modules_completed: int
+    overall_progress_percentage: float
+    favorite_category: Optional[str] = None
+    total_time_spent_minutes: int
+    
+    class Config:
+        from_attributes = True

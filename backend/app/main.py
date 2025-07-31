@@ -40,7 +40,7 @@ from app import models
 from app.database import engine
 from app.routes import (
     users, moods, micro_assessments, mbi_assessments, 
-    journal, chatbot, goals, wellness
+    journal, chatbot, goals, wellness, courses
 )
 
 from dotenv import load_dotenv
@@ -86,6 +86,7 @@ app.include_router(journal.router, prefix="/journals", tags=["Journals"])
 app.include_router(chatbot.router, prefix="/chatbot", tags=["Chatbot"])
 app.include_router(goals.router, prefix="/goals", tags=["Goals"])
 app.include_router(wellness.router, prefix="/wellness", tags=["Wellness Activities"])
+app.include_router(courses.router, prefix="/courses", tags=["Courses"])
 
 # Serve static files (for uploaded audio files)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
@@ -104,6 +105,7 @@ def root():
             "AI-powered chatbot (Carely)",
             "Wellness activities",
             "Goal setting"
+            "Course management",
         ]
     }
 

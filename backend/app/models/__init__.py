@@ -1,5 +1,3 @@
-# models/__init__.py
-
 from .user import User
 from .mood_enteries import MoodEntry
 from .micro_assessments import MicroAssessment
@@ -13,6 +11,10 @@ from .messages import Message
 from .reminders import Reminder
 from .health_data import HealthData
 from .wellness_activities import WellnessActivity
+from .courses import Course
+from .course_modules import CourseModule
+from .user_module_progress import UserModuleProgress
+from .user_course_progress import UserCourseProgress
 from app.database import Base
 
 # Optional: list all for easy access
@@ -31,5 +33,8 @@ __all__ = [
     "Conversation",
     "Message",
     "WellnessActivity",
-    
+    "UserCourseProgress",
+    "UserModuleProgress"
+    "Course",
+    "CourseModule",
 ]

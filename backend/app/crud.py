@@ -1,9 +1,17 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import and_, func
 from passlib.context import CryptContext
 from app import schemas, models
 from datetime import datetime
 from uuid import UUID
-from typing import List
+from typing import List, Optional
+from sqlalchemy import func, desc, and_
+
+# from app.models.courses import Course, CourseModule, UserCourseEnrollment, UserModuleProgress
+from app import schemas
+from datetime import datetime
+from uuid import UUID
+from typing import List, Optional
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -450,3 +458,314 @@ def calculate_enhanced_user_streak(db: Session, user_id: UUID):
             temp_streak = 0
     
     return current_streak, longest_streak
+
+
+
+# COURSE CRUD OPERATIONS
+def create_course(db: Session, course: schemas.CourseCreate):
+    """Create a new course with its modules"""
+    db_course = models.Course(**course.dict(exclude={'modules'}))
+    db.add(db_course)
+    db.flush()  # Get the course ID
+    
+    # Create modules if provided
+    if course.modules:
+        for i, module_data in enumerate(course.modules):
+            db_module = models.CourseModule(
+                course_id=db_course.id,
+                **module_data.dict(),
+                sort_order=i
+            )
+            db.add(db_module)
+    
+    db.commit()
+    db.refresh(db_course)
+    return db_course
+
+def get_course_by_id(db: Session, course_id: str):
+    """Get course by ID with modules"""
+    return db.query(models.Course).filter(models.Course.id == course_id).first()
+
+def get_courses(db: Session, category: Optional[str] = None, is_active: bool = True):
+    """Get all courses, optionally filtered by category"""
+    query = db.query(models.Course).filter(models.Course.is_active == is_active)
+    if category:
+        query = query.filter(models.Course.category == category)
+    return query.order_by(models.Course.sort_order, models.Course.title).all()
+
+def get_courses_with_user_progress(db: Session, user_id: UUID, category: Optional[str] = None):
+    """Get courses with user progress information"""
+    from sqlalchemy.orm import joinedload
+    
+    # Get courses
+    courses_query = db.query(models.Course).filter(models.Course.is_active == True)
+    if category:
+        courses_query = courses_query.filter(models.Course.category == category)
+    
+    courses = courses_query.order_by(models.Course.sort_order, models.Course.title).all()
+    
+    # Get user progress for these courses
+    progress_data = db.query(models.UserCourseProgress).filter(
+        models.UserCourseProgress.user_id == user_id,
+        models.UserCourseProgress.course_id.in_([c.id for c in courses])
+    ).all()
+    
+    progress_dict = {p.course_id: p for p in progress_data}
+    
+    # Combine course data with progress
+    result = []
+    for course in courses:
+        course_dict = course.__dict__.copy()
+        progress = progress_dict.get(course.id)
+        if progress:
+            course_dict.update({
+                'progress_percentage': progress.progress_percentage,
+                'is_completed': progress.is_completed,
+                'last_accessed_at': progress.last_accessed_at
+            })
+        else:
+            course_dict.update({
+                'progress_percentage': 0.0,
+                'is_completed': False,
+                'last_accessed_at': None
+            })
+        result.append(course_dict)
+    
+    return result
+
+def update_course(db: Session, course_id: str, course_update: schemas.CourseUpdate):
+    """Update course"""
+    course = get_course_by_id(db, course_id)
+    if not course:
+        return None
+    
+    update_data = course_update.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(course, key, value)
+    
+    course.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(course)
+    return course
+
+def delete_course(db: Session, course_id: str):
+    """Delete course (soft delete by setting is_active=False)"""
+    course = get_course_by_id(db, course_id)
+    if course:
+        course.is_active = False
+        db.commit()
+        return True
+    return False
+
+# COURSE MODULE CRUD OPERATIONS
+def create_course_module(db: Session, module: schemas.CourseModuleCreate):
+    """Create a new course module"""
+    db_module = models.CourseModule(**module.dict())
+    db.add(db_module)
+    db.commit()
+    db.refresh(db_module)
+    return db_module
+
+def get_course_modules(db: Session, course_id: str):
+    """Get all modules for a course"""
+    return db.query(models.CourseModule).filter(
+        models.CourseModule.course_id == course_id
+    ).order_by(models.CourseModule.sort_order).all()
+
+def get_module_by_id(db: Session, module_id: UUID):
+    """Get module by ID"""
+    return db.query(models.CourseModule).filter(models.CourseModule.id == module_id).first()
+
+def update_course_module(db: Session, module_id: UUID, module_update: dict):
+    """Update course module"""
+    module = get_module_by_id(db, module_id)
+    if not module:
+        return None
+    
+    for key, value in module_update.items():
+        if hasattr(module, key):
+            setattr(module, key, value)
+    
+    module.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(module)
+    return module
+
+# USER COURSE PROGRESS CRUD OPERATIONS
+def start_course(db: Session, user_id: UUID, course_id: str):
+    """Start a course for a user (create progress record)"""
+    # Check if progress already exists
+    existing_progress = db.query(models.UserCourseProgress).filter(
+        models.UserCourseProgress.user_id == user_id,
+        models.UserCourseProgress.course_id == course_id
+    ).first()
+    
+    if existing_progress:
+        # Update last accessed time
+        existing_progress.last_accessed_at = datetime.utcnow()
+        db.commit()
+        return existing_progress
+    
+    # Create new progress record
+    progress = models.UserCourseProgress(
+        user_id=user_id,
+        course_id=course_id,
+        progress_percentage=0.0,
+        is_completed=False
+    )
+    db.add(progress)
+    db.commit()
+    db.refresh(progress)
+    return progress
+
+def get_user_course_progress(db: Session, user_id: UUID, course_id: str):
+    """Get user's progress for a specific course"""
+    return db.query(models.UserCourseProgress).filter(
+        models.UserCourseProgress.user_id == user_id,
+        models.UserCourseProgress.course_id == course_id
+    ).first()
+
+def get_user_all_course_progress(db: Session, user_id: UUID):
+    """Get all course progress for a user"""
+    return db.query(models.UserCourseProgress).filter(
+        models.UserCourseProgress.user_id == user_id
+    ).all()
+
+def complete_module(db: Session, user_id: UUID, course_id: str, module_id: UUID):
+    """Mark a module as completed and update course progress"""
+    # Get or create course progress
+    course_progress = get_user_course_progress(db, user_id, course_id)
+    if not course_progress:
+        course_progress = start_course(db, user_id, course_id)
+    
+    # Check if module progress already exists
+    module_progress = db.query(models.UserModuleProgress).filter(
+        models.UserModuleProgress.user_course_progress_id == course_progress.id,
+        models.UserModuleProgress.module_id == module_id
+    ).first()
+    
+    if not module_progress:
+        # Create new module progress
+        module_progress = models.UserModuleProgress(
+            user_course_progress_id=course_progress.id,
+            module_id=module_id,
+            is_completed=True,
+            completion_date=datetime.utcnow(),
+            completed_at=datetime.utcnow()
+        )
+        db.add(module_progress)
+    else:
+        # Update existing module progress
+        module_progress.is_completed = True
+        module_progress.completion_date = datetime.utcnow()
+        module_progress.completed_at = datetime.utcnow()
+    
+    # Update course progress
+    total_modules = db.query(models.CourseModule).filter(
+        models.CourseModule.course_id == course_id
+    ).count()
+    
+    completed_modules = db.query(models.UserModuleProgress).join(
+        models.CourseModule
+    ).filter(
+        models.UserModuleProgress.user_course_progress_id == course_progress.id,
+        models.UserModuleProgress.is_completed == True,
+        models.CourseModule.course_id == course_id
+    ).count()
+    
+    if not module_progress.is_completed:  # If this is a new completion
+        completed_modules += 1
+    
+    # Calculate progress percentage
+    progress_percentage = (completed_modules / total_modules * 100) if total_modules > 0 else 100
+    course_progress.progress_percentage = progress_percentage
+    course_progress.last_accessed_at = datetime.utcnow()
+    
+    # Mark course as completed if all modules are done
+    if progress_percentage >= 100:
+        course_progress.is_completed = True
+        course_progress.completion_date = datetime.utcnow()
+    
+    db.commit()
+    db.refresh(course_progress)
+    return course_progress
+
+def update_module_time_spent(db: Session, user_id: UUID, course_id: str, module_id: UUID, time_spent_seconds: int):
+    """Update time spent on a module"""
+    course_progress = get_user_course_progress(db, user_id, course_id)
+    if not course_progress:
+        course_progress = start_course(db, user_id, course_id)
+    
+    module_progress = db.query(models.UserModuleProgress).filter(
+        models.UserModuleProgress.user_course_progress_id == course_progress.id,
+        models.UserModuleProgress.module_id == module_id
+    ).first()
+    
+    if not module_progress:
+        module_progress = models.UserModuleProgress(
+            user_course_progress_id=course_progress.id,
+            module_id=module_id,
+            time_spent_seconds=time_spent_seconds
+        )
+        db.add(module_progress)
+    else:
+        module_progress.time_spent_seconds = max(module_progress.time_spent_seconds, time_spent_seconds)
+    
+    course_progress.last_accessed_at = datetime.utcnow()
+    db.commit()
+    return module_progress
+
+def get_user_course_stats(db: Session, user_id: UUID):
+    """Get comprehensive course statistics for a user"""
+    # Get all course progress
+    all_progress = get_user_all_course_progress(db, user_id)
+    
+    # Get total courses available
+    total_courses = db.query(models.Course).filter(models.Course.is_active == True).count()
+    
+    # Calculate stats
+    completed_courses = sum(1 for p in all_progress if p.is_completed)
+    in_progress_courses = sum(1 for p in all_progress if not p.is_completed and p.progress_percentage > 0)
+    
+    # Get total modules completed
+    total_modules_completed = db.query(models.UserModuleProgress).join(
+        models.UserCourseProgress
+    ).filter(
+        models.UserCourseProgress.user_id == user_id,
+        models.UserModuleProgress.is_completed == True
+    ).count()
+    
+    # Calculate overall progress
+    if total_courses > 0:
+        overall_progress = sum(p.progress_percentage for p in all_progress) / total_courses
+    else:
+        overall_progress = 0.0
+    
+    # Get favorite category (most completed courses)
+    category_counts = db.query(
+        models.Course.category,
+        func.count(models.Course.category).label('count')
+    ).join(models.UserCourseProgress).filter(
+        models.UserCourseProgress.user_id == user_id,
+        models.UserCourseProgress.is_completed == True,
+        models.Course.category.isnot(None)
+    ).group_by(models.Course.category).order_by(desc('count')).first()
+    
+    favorite_category = category_counts[0] if category_counts else None
+    
+    # Get total time spent (in minutes)
+    total_time_seconds = db.query(func.sum(models.UserModuleProgress.time_spent_seconds)).join(
+        models.UserCourseProgress
+    ).filter(models.UserCourseProgress.user_id == user_id).scalar() or 0
+    
+    total_time_minutes = total_time_seconds // 60
+    
+    return {
+        'total_courses': total_courses,
+        'completed_courses': completed_courses,
+        'in_progress_courses': in_progress_courses,
+        'total_modules_completed': total_modules_completed,
+        'overall_progress_percentage': round(overall_progress, 1),
+        'favorite_category': favorite_category,
+        'total_time_spent_minutes': total_time_minutes
+    }

@@ -11,6 +11,7 @@ httpx
 python-jose
 python-multipart
 passlib
+psycopg2-binary
 
 # For Ollama integration
 httpx>=0.24.0

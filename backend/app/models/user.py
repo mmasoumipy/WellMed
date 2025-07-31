@@ -15,6 +15,7 @@ from app.models.health_data import HealthData
 from app.models.conversations import Conversation
 
 
+
 class User(Base):
     __tablename__ = 'users'
     
@@ -37,3 +38,5 @@ class User(Base):
     health_data = relationship("HealthData", back_populates="user")
     conversations = relationship("Conversation", back_populates="user")
     wellness_activities = relationship("WellnessActivity", back_populates="user")
+    course_progresses = relationship("UserCourseProgress", back_populates="user")
+    
