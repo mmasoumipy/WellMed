@@ -58,6 +58,9 @@ export default function CarelyJournalScreen({ navigation }: any) {
   const [isSavingJournal, setIsSavingJournal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   
+  // Dropdown states for each journal entry
+  const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
+  
   const scrollViewRef = useRef<ScrollView>(null);
   const slideAnimation = useRef(new Animated.Value(0)).current;
 
@@ -328,6 +331,100 @@ export default function CarelyJournalScreen({ navigation }: any) {
     setRefreshing(false);
   };
 
+  const toggleEntryExpansion = (entryId: string) => {
+    setExpandedEntries(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(entryId)) {
+        newSet.delete(entryId);
+      } else {
+        newSet.add(entryId);
+      }
+      return newSet;
+    });
+  };
+
+  // Function to render markdown-like text
+  const renderAnalysisText = (text: string) => {
+    if (!text) return null;
+
+    // Split text into lines and process each line
+    const lines = text.split('\n');
+    const elements: any[] = [];
+
+    lines.forEach((line, index) => {
+      const trimmedLine = line.trim();
+      
+      if (!trimmedLine) {
+        elements.push(<View key={`spacer-${index}`} style={styles.textSpacer} />);
+        return;
+      }
+
+      // Headers (lines starting with ##, ###, etc.)
+      if (trimmedLine.startsWith('### ')) {
+        elements.push(
+          <Text key={index} style={styles.analysisSubheader}>
+            {trimmedLine.replace('### ', '')}
+          </Text>
+        );
+      } else if (trimmedLine.startsWith('## ')) {
+        elements.push(
+          <Text key={index} style={styles.analysisHeader}>
+            {trimmedLine.replace('## ', '')}
+          </Text>
+        );
+      }
+      // Bold text (surrounded by **)
+      else if (trimmedLine.includes('**')) {
+        const parts = trimmedLine.split('**');
+        const textElements: any[] = [];
+        
+        parts.forEach((part, partIndex) => {
+          if (partIndex % 2 === 1) {
+            // This is bold text
+            textElements.push(
+              <Text key={partIndex} style={styles.boldText}>
+                {part}
+              </Text>
+            );
+          } else {
+            // Regular text
+            textElements.push(part);
+          }
+        });
+        
+        elements.push(
+          <Text key={index} style={styles.analysisText}>
+            {textElements}
+          </Text>
+        );
+      }
+      // List items (starting with •, -, or numbers)
+      else if (trimmedLine.match(/^[\u2022\-\*]\s/) || trimmedLine.match(/^\d+\.\s/)) {
+        elements.push(
+          <View key={index} style={styles.listItem}>
+            <Text style={styles.listMarker}>
+              {trimmedLine.match(/^[\u2022\-\*]/) ? '•' : 
+               trimmedLine.match(/^\d+\./) ? trimmedLine.match(/^\d+\./)?.[0] + ' ' : '• '}
+            </Text>
+            <Text style={styles.listText}>
+              {trimmedLine.replace(/^[\u2022\-\*]\s/, '').replace(/^\d+\.\s/, '')}
+            </Text>
+          </View>
+        );
+      }
+      // Regular paragraph
+      else {
+        elements.push(
+          <Text key={index} style={styles.analysisText}>
+            {trimmedLine}
+          </Text>
+        );
+      }
+    });
+
+    return <View style={styles.analysisContent}>{elements}</View>;
+  };
+
   const renderMessage = (message: Message) => (
     <View
       key={message.id}
@@ -367,55 +464,73 @@ export default function CarelyJournalScreen({ navigation }: any) {
     </View>
   );
 
-  const renderJournalEntry = (entry: JournalEntry) => (
-    <TouchableOpacity 
-      key={entry.id} 
-      style={styles.journalEntryCard}
-      onPress={() => {
-        if (entry.analysis === "Your journal entry is being analyzed by Carely. Refresh to see the insights!") {
-          Alert.alert(
-            'Analysis in Progress',
-            'Carely is still analyzing this entry. Please refresh or check back in a moment.',
-            [
-              { text: 'Refresh', onPress: () => loadJournalEntries() },
-              { text: 'OK', style: 'cancel' }
-            ]
-          );
-        } else {
-          Alert.alert(
-            'Carely\'s Analysis',
-            entry.analysis,
-            [{ text: 'Thank you', style: 'default' }]
-          );
-        }
-      }}
-    >
-      <View style={styles.journalEntryHeader}>
-        <Text style={styles.journalEntryDate}>
-          {new Date(entry.created_at).toLocaleDateString()}
+  const renderJournalEntry = (entry: JournalEntry) => {
+    const isExpanded = expandedEntries.has(entry.id);
+    const isAnalysisReady = entry.analysis !== "Your journal entry is being analyzed by Carely. Refresh to see the insights!";
+
+    return (
+      <View key={entry.id} style={styles.journalEntryCard}>
+        <View style={styles.journalEntryHeader}>
+          <Text style={styles.journalEntryDate}>
+            {new Date(entry.created_at).toLocaleDateString()}
+          </Text>
+          <Text style={styles.journalEntryTime}>
+            {new Date(entry.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </Text>
+        </View>
+        
+        <Text style={styles.journalEntryPreview} numberOfLines={isExpanded ? undefined : 4}>
+          {entry.text_content}
         </Text>
-        {entry.analysis === "Your journal entry is being analyzed by Carely. Refresh to see the insights!" ? (
-          <ActivityIndicator size="small" color={colors.primary} />
-        ) : (
-          <Ionicons name="analytics" size={16} color={colors.primary} />
+        
+        {/* Analysis Dropdown */}
+        <TouchableOpacity 
+          style={styles.analysisDropdown}
+          onPress={() => {
+            if (!isAnalysisReady) {
+              Alert.alert(
+                'Analysis in Progress',
+                'Carely is still analyzing this entry. Please refresh or check back in a moment.',
+                [
+                  { text: 'Refresh', onPress: () => loadJournalEntries() },
+                  { text: 'OK', style: 'cancel' }
+                ]
+              );
+            } else {
+              toggleEntryExpansion(entry.id);
+            }
+          }}
+        >
+          <View style={styles.dropdownHeader}>
+            <View style={styles.dropdownLeft}>
+              {isAnalysisReady ? (
+                <Ionicons name="analytics" size={16} color={colors.primary} />
+              ) : (
+                <ActivityIndicator size="small" color={colors.primary} />
+              )}
+              <Text style={styles.dropdownTitle}>
+                {isAnalysisReady ? 'Analysis by Carely' : 'Analysis in progress...'}
+              </Text>
+            </View>
+            {isAnalysisReady && (
+              <Ionicons 
+                name={isExpanded ? 'chevron-up' : 'chevron-down'} 
+                size={16} 
+                color={colors.textSecondary} 
+              />
+            )}
+          </View>
+        </TouchableOpacity>
+        
+        {/* Analysis Content */}
+        {isExpanded && isAnalysisReady && (
+          <View style={styles.analysisContainer}>
+            {renderAnalysisText(entry.analysis)}
+          </View>
         )}
       </View>
-      <Text style={styles.journalEntryPreview} numberOfLines={4}>
-        {entry.text_content}
-      </Text>
-      <View style={styles.journalEntryFooter}>
-        <Text style={styles.journalEntryTime}>
-          {new Date(entry.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-        </Text>
-        <Text style={styles.analysisHint}>
-          {entry.analysis === "Your journal entry is being analyzed by Carely. Refresh to see the insights!" 
-            ? "Analysis in progress..." 
-            : "Tap to see Carely's insights"
-          }
-        </Text>
-      </View>
-    </TouchableOpacity>
-  );
+    );
+  };
 
   const renderCarelyTab = () => (
     <View style={styles.tabContent}>
@@ -654,7 +769,6 @@ export default function CarelyJournalScreen({ navigation }: any) {
     </KeyboardAvoidingView>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -994,33 +1108,113 @@ const styles = StyleSheet.create({
   journalEntryHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
-  },
-  journalEntryDate: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  journalEntryPreview: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    lineHeight: 20,
+    alignItems: 'center',
     marginBottom: 12,
   },
-  journalEntryFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  journalEntryDate: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textPrimary,
   },
   journalEntryTime: {
     fontSize: 12,
     color: colors.textSecondary,
   },
-  analysisHint: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    fontStyle: 'italic',
+  journalEntryPreview: {
+    fontSize: 16,
+    color: colors.textPrimary,
+    lineHeight: 22,
+    marginBottom: 16,
   },
+  
+  // Analysis Dropdown Styles
+  analysisDropdown: {
+    marginTop: 8,
+  },
+  dropdownHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: colors.primary + '10',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.primary + '30',
+  },
+  dropdownLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  dropdownTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
+    marginLeft: 8,
+  },
+  analysisContainer: {
+    marginTop: 12,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
+  },
+  
+  // Analysis Text Styling (Markdown-like)
+  analysisContent: {
+    paddingHorizontal: 4,
+  },
+  analysisText: {
+    fontSize: 16,
+    color: colors.textPrimary,
+    lineHeight: 24,
+    marginBottom: 12,
+    textAlign: 'left',
+  },
+  analysisHeader: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: colors.textPrimary,
+    marginBottom: 16,
+    marginTop: 8,
+    textAlign: 'left',
+  },
+  analysisSubheader: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginBottom: 12,
+    marginTop: 8,
+    textAlign: 'left',
+  },
+  boldText: {
+    fontWeight: 'bold',
+    color: colors.textPrimary,
+  },
+  listItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+    paddingLeft: 8,
+  },
+  listMarker: {
+    fontSize: 16,
+    color: colors.primary,
+    fontWeight: 'bold',
+    marginRight: 8,
+    minWidth: 20,
+  },
+  listText: {
+    fontSize: 16,
+    color: colors.textPrimary,
+    lineHeight: 24,
+    flex: 1,
+    textAlign: 'left',
+  },
+  textSpacer: {
+    height: 8,
+  },
+
   emptyJournalState: {
     alignItems: 'center',
     paddingVertical: 60,

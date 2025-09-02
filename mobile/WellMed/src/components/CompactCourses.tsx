@@ -1,98 +1,123 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator, RefreshControl } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { colors } from '../constants/colors';
-import { courseAPI, Course } from '../api/courses';
+import courseService, { Course } from '../api/courses';
 
 interface CompactCoursesProps {
   onViewAllCourses: () => void;
-  onStartCourse: (courseId: string, course: Course) => void;
+  onStartCourse: (courseId: string) => void;
 }
 
 export default function CompactCourses({ onViewAllCourses, onStartCourse }: CompactCoursesProps) {
-  const [featuredCourses, setFeaturedCourses] = useState<Course[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [totalCompleted, setTotalCompleted] = useState(0);
-  const [totalCourses, setTotalCourses] = useState(0);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadFeaturedCourses();
   }, []);
 
-  const loadFeaturedCourses = async () => {
+  const loadFeaturedCourses = async (isRefresh = false) => {
     try {
-      const userId = await AsyncStorage.getItem('userId');
-      if (!userId) {
-        console.log('No userId found');
-        return;
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      setError(null);
+
+      // Try to get from cache first if not refreshing
+      if (!isRefresh) {
+        const cachedCourses = await courseService.getCachedCoursesData();
+        if (cachedCourses && cachedCourses.length > 0) {
+          const featuredCourses = cachedCourses
+            .filter(course => ['core', 'quick-wins'].includes(course.category || ''))
+            .slice(0, 4);
+          setCourses(featuredCourses);
+          setTotalCompleted(cachedCourses.filter(c => c.is_completed).length);
+          setLoading(false);
+        }
       }
 
-      // Get courses with user progress
-      const coursesWithProgress = await courseAPI.getCoursesWithProgress(userId);
+      // Fetch fresh data from API
+      const coursesWithProgress = await courseService.getCoursesWithProgress();
       
-      // Get featured courses (first 4 courses from different categories)
-      const coreModules = coursesWithProgress.filter(c => c.category === 'core').slice(0, 2);
-      const quickWins = coursesWithProgress.filter(c => c.category === 'quick-wins').slice(0, 1);
-      const specialty = coursesWithProgress.filter(c => c.category === 'specialty').slice(0, 1);
+      // Cache the data
+      await courseService.cacheCoursesData(coursesWithProgress);
       
-      const featured = [...coreModules, ...quickWins, ...specialty];
-      setFeaturedCourses(featured);
+      // Filter for featured courses (core and quick-wins categories, limit to 4)
+      const featuredCourses = coursesWithProgress
+        .filter(course => ['core', 'quick-wins'].includes(course.category || ''))
+        .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+        .slice(0, 4);
 
-      // Get stats
-      const stats = await courseAPI.getUserCourseStats(userId);
-      setTotalCompleted(stats.completed_courses);
-      setTotalCourses(stats.total_courses);
+      setCourses(featuredCourses);
+      setTotalCompleted(coursesWithProgress.filter(c => c.is_completed).length);
 
-    } catch (error) {
-      console.error('Error loading courses:', error);
-      // Fallback to empty state or show error
-      setFeaturedCourses([]);
+    } catch (error: any) {
+      console.error('Error loading featured courses:', error);
+      setError(error.message || 'Failed to load courses');
+      
+      // Try to load from cache as fallback
+      if (!isRefresh) {
+        const cachedCourses = await courseService.getCachedCoursesData();
+        if (cachedCourses) {
+          const featuredCourses = cachedCourses
+            .filter(course => ['core', 'quick-wins'].includes(course.category || ''))
+            .slice(0, 4);
+          setCourses(featuredCourses);
+          setTotalCompleted(cachedCourses.filter(c => c.is_completed).length);
+        }
+      }
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  const handleCoursePress = async (course: Course) => {
-    const isCompleted = course.is_completed;
-    const progress = course.progress_percentage || 0;
+  const onRefresh = () => {
+    loadFeaturedCourses(true);
+  };
 
-    if (isCompleted) {
-      Alert.alert(
-        'Course Completed! ✅',
-        `You've already completed "${course.title}". Would you like to review it?`,
-        [
-          { text: 'Not Now', style: 'cancel' },
-          { text: 'Review Course', onPress: () => onStartCourse(course.id, course) },
-        ]
-      );
-    } else if (progress > 0) {
-      Alert.alert(
-        'Continue Course',
-        `You're ${Math.round(progress)}% through "${course.title}". Continue where you left off?`,
-        [
-          { text: 'Later', style: 'cancel' },
-          { text: 'Continue', onPress: () => onStartCourse(course.id, course) },
-        ]
-      );
-    } else {
-      // Start the course
-      try {
-        const userId = await AsyncStorage.getItem('userId');
-        if (userId) {
-          await courseAPI.startCourse(userId, course.id);
-        }
-        onStartCourse(course.id, course);
-      } catch (error) {
-        console.error('Error starting course:', error);
-        // Still allow navigation even if API call fails
-        onStartCourse(course.id, course);
+  const handleCoursePress = async (course: Course) => {
+    try {
+      const isCompleted = course.is_completed;
+      const progress = course.progress_percentage || 0;
+
+      if (isCompleted) {
+        Alert.alert(
+          'Course Completed! ✅',
+          `You've already completed "${course.title}". Would you like to review it?`,
+          [
+            { text: 'Not Now', style: 'cancel' },
+            { text: 'Review Course', onPress: () => onStartCourse(course.id) },
+          ]
+        );
+      } else if (progress > 0) {
+        Alert.alert(
+          'Continue Course',
+          `You're ${Math.round(progress)}% through "${course.title}". Continue where you left off?`,
+          [
+            { text: 'Later', style: 'cancel' },
+            { text: 'Continue', onPress: () => onStartCourse(course.id) },
+          ]
+        );
+      } else {
+        // Start the course
+        await courseService.startCourse(course.id);
+        onStartCourse(course.id);
       }
+    } catch (error: any) {
+      console.error('Error handling course press:', error);
+      Alert.alert('Error', 'Failed to start course. Please try again.');
     }
   };
 
   const renderCourseCard = (course: Course) => {
-    const isCompleted = course.is_completed;
+    const isCompleted = course.is_completed || false;
     const progress = course.progress_percentage || 0;
 
     return (
@@ -160,7 +185,7 @@ export default function CompactCourses({ onViewAllCourses, onStartCourse }: Comp
     }
   };
 
-  if (loading) {
+  if (loading && !refreshing) {
     return (
       <View style={styles.container}>
         <View style={styles.header}>
@@ -170,7 +195,35 @@ export default function CompactCourses({ onViewAllCourses, onStartCourse }: Comp
           </View>
         </View>
         <View style={styles.loadingContainer}>
+          <ActivityIndicator size="small" color={colors.primary} />
           <Text style={styles.loadingText}>Loading courses...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (error && courses.length === 0) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <View style={styles.titleContainer}>
+            <Ionicons name="school-outline" size={20} color={colors.thirdary} />
+            <Text style={styles.title}>Wellness Courses</Text>
+          </View>
+          <TouchableOpacity 
+            style={styles.viewAllButton}
+            onPress={onViewAllCourses}
+          >
+            <Text style={styles.viewAllText}>View All</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.thirdary} />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.errorContainer}>
+          <Ionicons name="wifi-outline" size={32} color={colors.textSecondary} />
+          <Text style={styles.errorText}>Failed to load courses</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={() => loadFeaturedCourses()}>
+            <Text style={styles.retryText}>Retry</Text>
+          </TouchableOpacity>
         </View>
       </View>
     );
@@ -199,21 +252,17 @@ export default function CompactCourses({ onViewAllCourses, onStartCourse }: Comp
       </Text>
 
       {/* Featured Courses */}
-      {featuredCourses.length > 0 ? (
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          style={styles.coursesScroll}
-          contentContainerStyle={styles.coursesContainer}
-        >
-          {featuredCourses.map(renderCourseCard)}
-        </ScrollView>
-      ) : (
-        <View style={styles.emptyState}>
-          <Ionicons name="school-outline" size={48} color={colors.textSecondary} />
-          <Text style={styles.emptyStateText}>No courses available</Text>
-        </View>
-      )}
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false}
+        style={styles.coursesScroll}
+        contentContainerStyle={styles.coursesContainer}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        {courses.map(renderCourseCard)}
+      </ScrollView>
 
       {/* Footer */}
       <View style={styles.footer}>
@@ -224,7 +273,7 @@ export default function CompactCourses({ onViewAllCourses, onStartCourse }: Comp
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{totalCourses}</Text>
+            <Text style={styles.statNumber}>{courses.length}+</Text>
             <Text style={styles.statLabel}>Available</Text>
           </View>
         </View>
@@ -289,21 +338,37 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   loadingContainer: {
-    padding: 40,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
   },
   loadingText: {
+    marginLeft: 12,
     fontSize: 14,
     color: colors.textSecondary,
   },
-  emptyState: {
-    padding: 40,
+  errorContainer: {
     alignItems: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 20,
   },
-  emptyStateText: {
+  errorText: {
     fontSize: 14,
     color: colors.textSecondary,
     marginTop: 12,
+    marginBottom: 16,
+  },
+  retryButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  retryText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
   },
   coursesScroll: {
     marginBottom: 16,

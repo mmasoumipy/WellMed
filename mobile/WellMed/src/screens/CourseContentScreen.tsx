@@ -6,80 +6,109 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  Dimensions,
   SafeAreaView,
   ActivityIndicator,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { colors } from '../constants/colors';
-import { courseAPI, Course, CourseModule, CourseProgress } from '../api/courses';
+import courseService, { Course, CourseModule } from '../api/courses';
+import MarkdownText from '../components/MarkdownText';
+
+const { width } = Dimensions.get('window');
 
 export default function CourseContentScreen({ route, navigation }: any) {
   const { course }: { course: Course } = route.params;
   const [modules, setModules] = useState<CourseModule[]>([]);
   const [currentModuleIndex, setCurrentModuleIndex] = useState(0);
-  const [courseProgress, setCourseProgress] = useState<CourseProgress | null>(null);
   const [completedModules, setCompletedModules] = useState<Set<string>>(new Set());
+  const [courseProgress, setCourseProgress] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState<string>('');
+  const [moduleStartTime, setModuleStartTime] = useState<Date>(new Date());
 
   const currentModule = modules[currentModuleIndex];
 
   useEffect(() => {
-    initializeCourse();
+    loadCourseContent();
   }, []);
 
-  const initializeCourse = async () => {
+  useEffect(() => {
+    if (modules.length > 0) {
+      setModuleStartTime(new Date());
+    }
+  }, [currentModuleIndex]);
+
+  const loadCourseContent = async () => {
     try {
-      const storedUserId = await AsyncStorage.getItem('userId');
-      if (!storedUserId) {
-        Alert.alert('Error', 'User not found. Please log in again.');
-        navigation.goBack();
-        return;
-      }
-      setUserId(storedUserId);
-
-      // Load course with modules and user progress
-      const [courseWithModules, userProgress] = await Promise.all([
-        courseAPI.getCourse(course.id),
-        courseAPI.getCourseProgress(storedUserId, course.id).catch(() => null)
-      ]);
-
-      if (courseWithModules.modules) {
-        setModules(courseWithModules.modules);
+      setLoading(true);
+      
+      // Get course with modules
+      const courseData = await courseService.getCourse(course.id);
+      if (courseData.modules) {
+        const sortedModules = courseData.modules.sort((a, b) => a.sort_order - b.sort_order);
+        setModules(sortedModules);
       }
 
-      if (userProgress) {
-        setCourseProgress(userProgress);
-        // Note: You might want to get individual module progress from the API
-        // For now, we'll track completed modules locally
+      // Get user progress for this course
+      try {
+        const progressData = await courseService.getCourseProgress(course.id);
+        setCourseProgress(progressData.progress_percentage);
+        
+        // Set completed modules from backend
+        if (progressData.module_progresses) {
+          const completed = new Set(
+            progressData.module_progresses
+              .filter(mp => mp.is_completed)
+              .map(mp => mp.module_id)
+          );
+          setCompletedModules(completed);
+        }
+      } catch (progressError) {
+        console.log('No existing progress found, starting fresh');
+        // Start the course if no progress exists
+        await courseService.startCourse(course.id);
       }
 
-    } catch (error) {
-      console.error('Error initializing course:', error);
-      Alert.alert('Error', 'Could not load course content. Please try again.');
+    } catch (error: any) {
+      console.error('Error loading course content:', error);
+      Alert.alert(
+        'Error Loading Course',
+        'Failed to load course content. Please try again.',
+        [
+          { text: 'Go Back', onPress: () => navigation.goBack() },
+          { text: 'Retry', onPress: () => loadCourseContent() }
+        ]
+      );
     } finally {
       setLoading(false);
     }
   };
 
   const completeModule = async () => {
-    if (!userId || !currentModule) return;
+    if (!currentModule) return;
 
     try {
-      // Mark module as completed on the backend
-      await courseAPI.completeModule(userId, course.id, currentModule.id);
+      // Calculate time spent on this module
+      const timeSpent = Math.floor((new Date().getTime() - moduleStartTime.getTime()) / 1000);
+      
+      // Update time spent in backend
+      if (timeSpent > 0) {
+        await courseService.updateModuleTime(course.id, currentModule.id, timeSpent);
+      }
+
+      // Mark module as completed in backend
+      const result = await courseService.completeModule(course.id, currentModule.id);
       
       // Update local state
       const newCompleted = new Set(completedModules);
       newCompleted.add(currentModule.id);
       setCompletedModules(newCompleted);
-
+      
       // Update progress
       const newProgress = (newCompleted.size / modules.length) * 100;
+      setCourseProgress(newProgress);
 
       if (currentModuleIndex < modules.length - 1) {
-        // Move to next module
         Alert.alert(
           'Module Complete! 🎉',
           'Great job! Ready for the next module?',
@@ -99,13 +128,22 @@ export default function CourseContentScreen({ route, navigation }: any) {
           ]
         );
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error completing module:', error);
-      Alert.alert('Error', 'Could not save module progress. Please try again.');
+      Alert.alert('Error', 'Failed to save your progress. Please try again.');
     }
   };
 
   const navigateToModule = (index: number) => {
+    // Update time spent on current module before switching
+    if (currentModule) {
+      const timeSpent = Math.floor((new Date().getTime() - moduleStartTime.getTime()) / 1000);
+      if (timeSpent > 5) { // Only update if spent more than 5 seconds
+        courseService.updateModuleTime(course.id, currentModule.id, timeSpent)
+          .catch(error => console.error('Error updating module time:', error));
+      }
+    }
+    
     setCurrentModuleIndex(index);
   };
 
@@ -157,7 +195,7 @@ export default function CourseContentScreen({ route, navigation }: any) {
   );
 
   const renderKeyTakeaways = () => {
-    if (!currentModule?.key_takeaways || currentModule.key_takeaways.length === 0) return null;
+    if (!currentModule?.key_takeaways) return null;
 
     return (
       <View style={styles.takeawaysSection}>
@@ -173,7 +211,7 @@ export default function CourseContentScreen({ route, navigation }: any) {
   };
 
   const renderActionItems = () => {
-    if (!currentModule?.action_items || currentModule.action_items.length === 0) return null;
+    if (!currentModule?.action_items) return null;
 
     return (
       <View style={styles.actionSection}>
@@ -197,25 +235,23 @@ export default function CourseContentScreen({ route, navigation }: any) {
     );
   }
 
-  if (modules.length === 0) {
+  if (!currentModule) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle-outline" size={64} color={colors.textSecondary} />
-          <Text style={styles.errorTitle}>No Content Available</Text>
-          <Text style={styles.errorText}>This course doesn't have any modules yet.</Text>
-          <TouchableOpacity 
-            style={styles.backToCoursesButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Text style={styles.backToCoursesText}>Back to Courses</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
+      <View style={styles.errorContainer}>
+        <Ionicons name="alert-circle-outline" size={64} color={colors.textSecondary} />
+        <Text style={styles.errorTitle}>Course Content Not Available</Text>
+        <Text style={styles.errorText}>
+          This course content is currently being developed by our team.
+        </Text>
+        <TouchableOpacity 
+          style={styles.backButton} 
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.backButtonText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
     );
   }
-
-  const progress = (completedModules.size / modules.length) * 100;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -232,7 +268,7 @@ export default function CourseContentScreen({ route, navigation }: any) {
             {course.title}
           </Text>
           <Text style={styles.progressText}>
-            Module {currentModuleIndex + 1} of {modules.length} • {Math.round(progress)}% complete
+            Module {currentModuleIndex + 1} of {modules.length} • {Math.round(courseProgress)}% complete
           </Text>
         </View>
       </View>
@@ -240,7 +276,7 @@ export default function CourseContentScreen({ route, navigation }: any) {
       {/* Progress Bar */}
       <View style={styles.progressContainer}>
         <View style={styles.progressBar}>
-          <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: course.color }]} />
+          <View style={[styles.progressFill, { width: `${courseProgress}%`, backgroundColor: course.color }]} />
         </View>
       </View>
 
@@ -259,10 +295,13 @@ export default function CourseContentScreen({ route, navigation }: any) {
           <Text style={styles.moduleDuration}>{currentModule.duration}</Text>
         </View>
 
+
         <Text style={styles.moduleTitle}>{currentModule.title}</Text>
 
         <View style={styles.moduleContent}>
-          <Text style={styles.contentText}>{currentModule.content}</Text>
+          <MarkdownText style={styles.contentText}>
+            {currentModule.content}
+          </MarkdownText>
         </View>
 
         {renderKeyTakeaways()}
@@ -349,6 +388,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 40,
+    backgroundColor: colors.backgroundPrimary,
   },
   errorTitle: {
     fontSize: 18,
@@ -356,23 +396,14 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginTop: 16,
     marginBottom: 8,
+    textAlign: 'center',
   },
   errorText: {
     fontSize: 14,
     color: colors.textSecondary,
     textAlign: 'center',
+    lineHeight: 20,
     marginBottom: 24,
-  },
-  backToCoursesButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  backToCoursesText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
   },
   header: {
     flexDirection: 'row',
@@ -386,6 +417,15 @@ const styles = StyleSheet.create({
   backButton: {
     marginRight: 16,
     padding: 4,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  backButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
   },
   headerInfo: {
     flex: 1,

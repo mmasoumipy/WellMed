@@ -5,47 +5,76 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Dimensions,
   Alert,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { colors } from '../constants/colors';
-import { courseAPI, Course, CourseCategory, CourseStats } from '../api/courses';
+import courseService, { Course, CourseCategory, CourseStats } from '../api/courses';
+
+const { width } = Dimensions.get('window');
 
 export default function CoursesScreen({ navigation }: any) {
   const [courseCategories, setCourseCategories] = useState<CourseCategory[]>([]);
-  const [courseStats, setCourseStats] = useState<CourseStats | null>(null);
+  const [stats, setStats] = useState<CourseStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadCoursesData();
   }, []);
 
-  const loadCoursesData = async () => {
+  // Add navigation listener to refresh data when returning from CourseContent
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      // Only refresh if we're coming back from another screen (not initial load)
+      if (!loading) {
+        console.log('CoursesScreen focused - refreshing progress data');
+        loadCoursesData(true, false); // Refresh data silently
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation, loading]);
+
+  const loadCoursesData = async (isRefresh = false, showLoading = true) => {
     try {
-      const userId = await AsyncStorage.getItem('userId');
-      if (!userId) {
-        Alert.alert('Error', 'User not found. Please log in again.');
-        return;
+      if (isRefresh) {
+        setRefreshing(true);
+      } else if (showLoading) {
+        setLoading(true);
+      }
+      setError(null);
+
+      // Clear any cached data to ensure fresh progress
+      if (isRefresh) {
+        await courseService.clearCache();
       }
 
       // Load courses by category and stats in parallel
       const [categoriesData, statsData] = await Promise.all([
-        courseAPI.getCoursesByCategory(userId),
-        courseAPI.getUserCourseStats(userId)
+        courseService.getCoursesByCategory(),
+        courseService.getUserCourseStats().catch(err => {
+          console.warn('Failed to load course stats:', err);
+          return null;
+        })
       ]);
 
       setCourseCategories(categoriesData);
-      setCourseStats(statsData);
+      setStats(statsData);
+
+      console.log('CoursesScreen data refreshed:', {
+        categories: categoriesData.length,
+        totalCourses: statsData?.total_courses,
+        completed: statsData?.completed_courses
+      });
+
     } catch (error: any) {
       console.error('Error loading courses data:', error);
-      Alert.alert(
-        'Error', 
-        'Could not load courses. Please check your connection and try again.'
-      );
+      setError(error.message || 'Failed to load courses');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -53,8 +82,7 @@ export default function CoursesScreen({ navigation }: any) {
   };
 
   const onRefresh = () => {
-    setRefreshing(true);
-    loadCoursesData();
+    loadCoursesData(true);
   };
 
   const getDifficultyColor = (difficulty: string) => {
@@ -68,65 +96,84 @@ export default function CoursesScreen({ navigation }: any) {
 
   const startCourse = async (course: Course) => {
     try {
-      const userId = await AsyncStorage.getItem('userId');
-      if (!userId) {
-        Alert.alert('Error', 'User not found. Please log in again.');
-        return;
-      }
+      const isCompleted = course.is_completed;
+      const progress = course.progress_percentage || 0;
 
-      // Start the course if not already started
-      if (!course.progress_percentage || course.progress_percentage === 0) {
-        await courseAPI.startCourse(userId, course.id);
+      if (isCompleted) {
+        Alert.alert(
+          'Course Completed! ✅',
+          `You've already completed "${course.title}". Would you like to review it?`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Review Course',
+              onPress: () => {
+                navigation.navigate('CourseContent', { 
+                  course,
+                  // Pass callback to refresh this screen when returning
+                  onProgressUpdate: () => {
+                    console.log('Progress update callback triggered');
+                    loadCoursesData(true, false);
+                  }
+                });
+              },
+            },
+          ]
+        );
+      } else if (progress > 0) {
+        Alert.alert(
+          'Continue Course',
+          `You're ${Math.round(progress)}% through "${course.title}". Continue where you left off?`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Continue',
+              onPress: () => {
+                navigation.navigate('CourseContent', { 
+                  course,
+                  onProgressUpdate: () => {
+                    console.log('Progress update callback triggered');
+                    loadCoursesData(true, false);
+                  }
+                });
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert(
+          `Start ${course.title}?`,
+          `This course takes approximately ${course.duration} and contains ${course.modules_count} module${course.modules_count > 1 ? 's' : ''}.`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Start Course',
+              onPress: async () => {
+                try {
+                  await courseService.startCourse(course.id);
+                  navigation.navigate('CourseContent', { 
+                    course,
+                    onProgressUpdate: () => {
+                      console.log('Progress update callback triggered');
+                      loadCoursesData(true, false);
+                    }
+                  });
+                } catch (error: any) {
+                  Alert.alert('Error', 'Failed to start course. Please try again.');
+                }
+              },
+            },
+          ]
+        );
       }
-
-      // Navigate to course content
-      navigation.navigate('CourseContent', { course });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error starting course:', error);
-      // Still navigate even if API call fails
-      navigation.navigate('CourseContent', { course });
+      Alert.alert('Error', 'Failed to access course. Please try again.');
     }
   };
 
-  const renderProgressSummary = () => {
-    if (!courseStats) return null;
-
-    return (
-      <View style={styles.progressSummary}>
-        <View style={styles.summaryHeader}>
-          <Ionicons name="school-outline" size={24} color={colors.primary} />
-          <Text style={styles.summaryTitle}>Your Learning Progress</Text>
-        </View>
-        
-        <View style={styles.summaryStats}>
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{courseStats.completed_courses}</Text>
-            <Text style={styles.statLabel}>Completed</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{courseStats.total_courses}</Text>
-            <Text style={styles.statLabel}>Total Courses</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{Math.round(courseStats.overall_progress_percentage)}%</Text>
-            <Text style={styles.statLabel}>Overall</Text>
-          </View>
-        </View>
-        
-        <View style={styles.overallProgressBar}>
-          <View style={[
-            styles.overallProgressFill, 
-            { width: `${courseStats.overall_progress_percentage}%` }
-          ]} />
-        </View>
-      </View>
-    );
-  };
-
   const renderCourseCard = (course: Course) => {
-    const isCompleted = course.is_completed;
+    const isCompleted = course.is_completed || false;
     const progress = course.progress_percentage || 0;
     
     return (
@@ -193,11 +240,79 @@ export default function CoursesScreen({ navigation }: any) {
     </View>
   );
 
+  const renderProgressSummary = () => {
+    if (!stats) return null;
+
+    return (
+      <View style={styles.progressSummary}>
+        <View style={styles.summaryHeader}>
+          <Ionicons name="school-outline" size={24} color={colors.primary} />
+          <Text style={styles.summaryTitle}>Your Learning Progress</Text>
+        </View>
+        
+        <View style={styles.summaryStats}>
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{stats.completed_courses}</Text>
+            <Text style={styles.statLabel}>Completed</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{stats.total_courses}</Text>
+            <Text style={styles.statLabel}>Total Courses</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{Math.round(stats.overall_progress_percentage)}%</Text>
+            <Text style={styles.statLabel}>Overall</Text>
+          </View>
+        </View>
+        
+        <View style={styles.overallProgressBar}>
+          <View style={[styles.overallProgressFill, { width: `${stats.overall_progress_percentage}%` }]} />
+        </View>
+
+        {stats.favorite_category && (
+          <Text style={styles.favoriteCategory}>
+            Favorite category: {stats.favorite_category}
+          </Text>
+        )}
+      </View>
+    );
+  };
+
+  const renderError = () => (
+    <View style={styles.errorContainer}>
+      <Ionicons name="wifi-outline" size={64} color={colors.textSecondary} />
+      <Text style={styles.errorTitle}>Failed to Load Courses</Text>
+      <Text style={styles.errorText}>
+        Please check your internet connection and try again.
+      </Text>
+      <TouchableOpacity style={styles.retryButton} onPress={() => loadCoursesData()}>
+        <Text style={styles.retryButtonText}>Retry</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>Loading courses...</Text>
+      </View>
+    );
+  }
+
+  if (error && courseCategories.length === 0) {
+    return (
+      <View style={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerContent}>
+            <Text style={styles.headerTitle}>Wellness Courses</Text>
+            <Text style={styles.headerSubtitle}>Evidence-based training for burnout prevention</Text>
+          </View>
+        </View>
+        {renderError()}
       </View>
     );
   }
@@ -228,23 +343,14 @@ export default function CoursesScreen({ navigation }: any) {
       {renderProgressSummary()}
 
       {/* Course Categories */}
-      {courseCategories.length > 0 ? (
-        courseCategories.map(renderCategorySection)
-      ) : (
-        <View style={styles.emptyState}>
-          <Ionicons name="school-outline" size={64} color={colors.textSecondary} />
-          <Text style={styles.emptyStateTitle}>No courses available</Text>
-          <Text style={styles.emptyStateText}>
-            Check your connection and try refreshing the page.
-          </Text>
-        </View>
-      )}
+      {courseCategories.map(renderCategorySection)}
 
       <View style={styles.bottomSpacer} />
     </ScrollView>
   );
 }
 
+// Styles remain the same...
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -260,6 +366,37 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 16,
     color: colors.textSecondary,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  errorTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.textPrimary,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  errorText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  retryButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
   header: {
     flexDirection: 'row',
@@ -347,11 +484,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.divider,
     borderRadius: 3,
     overflow: 'hidden',
+    marginBottom: 12,
   },
   overallProgressFill: {
     height: '100%',
     backgroundColor: colors.primary,
     borderRadius: 3,
+  },
+  favoriteCategory: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
   categorySection: {
     marginBottom: 32,
@@ -464,25 +608,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.primary,
-  },
-
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 60,
-    paddingHorizontal: 40,
-  },
-  emptyStateTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.textPrimary,
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  emptyStateText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 20,
   },
   bottomSpacer: {
     height: 40,
