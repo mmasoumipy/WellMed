@@ -1,5 +1,5 @@
 -- To run:
--- docker-compose exec db psql -U myuser -d wellmed_db -f /path/to/sample_data.sql
+-- docker-compose exec db psql -U myuser -d wellmed_db -f sample_data.sql
 
 
 -- Insert courses
