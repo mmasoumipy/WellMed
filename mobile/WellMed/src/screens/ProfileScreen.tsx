@@ -16,6 +16,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { calculateWeightedBurnoutRisk, WeightedBurnoutRisk } from '../utils/burnoutRisk';
 import HealthDataDisplay from '../components/HealthDataDisplay';
+import MarkdownText from '../components/MarkdownText';
 import api from '../api/api';
 
 interface HistoryData {
@@ -60,6 +61,7 @@ export default function ProfileScreen({ navigation }: any) {
     totalMBIAssessments: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [isRiskAnalysisExpanded, setIsRiskAnalysisExpanded] = useState(false);
 
   useEffect(() => {
     loadUserData();
@@ -298,6 +300,101 @@ export default function ProfileScreen({ navigation }: any) {
     return date.toLocaleDateString('en-US', { weekday: 'short' });
   };
 
+  const generateBurnoutAnalysisText = (): string => {
+    if (!burnoutRisk) return '';
+
+    if (burnoutRisk.riskLevel === 'No Data') {
+      return `## Getting Started with Burnout Risk Assessment
+
+Complete these assessments to get your personalized burnout risk analysis:
+
+• **MBI Assessment (50% weight)** - Comprehensive burnout inventory
+• **Micro Assessments (30% weight)** - Quick daily wellness checks  
+• **Mood Tracking (20% weight)** - Daily mood monitoring
+
+### Why These Weights?
+
+• **MBI is weighted highest** because it's the gold standard for measuring burnout
+• **Micro assessments** provide ongoing insight into daily stress patterns
+• **Mood tracking** offers valuable context for overall wellbeing trends
+
+Tap the Quick Actions below to get started with your first assessment.`;
+    }
+
+    let analysisText = `## Your Burnout Risk Analysis
+
+**Overall Risk Score:** ${burnoutRisk.combinedScore}/10
+**Risk Level:** ${burnoutRisk.riskLevel}
+
+### Component Breakdown
+
+#### MBI Assessment (50% weight)
+`;
+
+    if (burnoutRisk.components.mbi.score > 0) {
+      analysisText += `• **Score:** ${burnoutRisk.components.mbi.score.toFixed(1)}/10
+• **Emotional Exhaustion:** ${burnoutRisk.components.mbi.emotionalExhaustion.toFixed(1)}/10
+• **Depersonalization:** ${burnoutRisk.components.mbi.depersonalization.toFixed(1)}/10
+• **Personal Achievement:** ${burnoutRisk.components.mbi.personalAccomplishment.toFixed(1)}/10
+`;
+    } else {
+      analysisText += `• No MBI assessment completed yet
+• Complete an MBI assessment to get detailed burnout analysis
+`;
+    }
+
+    analysisText += `
+#### Micro Assessments (30% weight)
+`;
+
+    if (burnoutRisk.components.microAssessments.score > 0) {
+      analysisText += `• **Score:** ${burnoutRisk.components.microAssessments.score.toFixed(1)}/10
+• **Average Stress Level:** ${burnoutRisk.components.microAssessments.averageStress.toFixed(1)}/5
+• **Average Fatigue Level:** ${burnoutRisk.components.microAssessments.averageFatigue.toFixed(1)}/5
+• **Average Work Satisfaction:** ${burnoutRisk.components.microAssessments.averageSatisfaction.toFixed(1)}/5
+`;
+    } else {
+      analysisText += `• No micro assessments completed yet
+• Take quick daily assessments to track wellness patterns
+`;
+    }
+
+    analysisText += `
+#### Mood Tracking (20% weight)
+`;
+
+    if (burnoutRisk.components.moodEntries.score > 0) {
+      analysisText += `• **Score:** ${burnoutRisk.components.moodEntries.score.toFixed(1)}/10
+• **Average Mood:** ${burnoutRisk.components.moodEntries.averageMood.toFixed(1)}/6
+• **Recent Trend:** ${burnoutRisk.components.moodEntries.recentTrend}
+`;
+    } else {
+      analysisText += `• No mood entries recorded yet
+• Track your daily mood to identify patterns
+`;
+    }
+
+    analysisText += `
+### Understanding Your Score
+
+• **0-3.5:** Low risk - Keep up the good work!
+• **3.6-6.5:** Medium risk - Consider implementing wellness strategies
+• **6.6-10:** High risk - Prioritize self-care and consider professional support
+`;
+
+    if (burnoutRisk.recommendations.length > 0) {
+      analysisText += `
+### Personalized Recommendations
+
+`;
+      burnoutRisk.recommendations.forEach((rec, index) => {
+        analysisText += `• ${rec}\n`;
+      });
+    }
+
+    return analysisText;
+  };
+
   const renderUserHeader = () => (
     <View style={styles.userHeader}>
       <View style={styles.avatarContainer}>
@@ -331,86 +428,10 @@ export default function ProfileScreen({ navigation }: any) {
       }
     };
 
-    const showDetailedBreakdown = () => {
-      if (burnoutRisk.riskLevel === 'No Data') {
-        Alert.alert(
-          'Burnout Risk Assessment',
-          'Complete these assessments to get your personalized burnout risk analysis:\n\n' +
-          '• MBI Assessment (50% weight) - Comprehensive burnout inventory\n' +
-          '• Micro Assessments (30% weight) - Quick daily wellness checks\n' +
-          '• Mood Tracking (20% weight) - Daily mood monitoring\n\n' +
-          'Why These Weights?\n' +
-          '- MBI is weighted highest because it\'s the gold standard for measuring burnout\n' +
-          '- Micro assessments provide ongoing insight into daily stress patterns\n' +
-          '- Mood tracking offers valuable context for overall wellbeing trends\n\n' +
-          'Tap the Quick Actions below to get started with your first assessment.',
-          [{ text: 'OK', style: 'default' }]
-        );
-        return;
-      }
-
-      let message = `Overall Risk Score: ${burnoutRisk.combinedScore}/10\n`;
-      message += `Risk Level: ${burnoutRisk.riskLevel}\n\n`;
-      
-      message += 'COMPONENT BREAKDOWN\n\n';
-      
-      // MBI Component (50%)
-      message += 'MBI Assessment (50% weight)\n';
-      if (burnoutRisk.components.mbi.score > 0) {
-        message += `• Score: ${burnoutRisk.components.mbi.score.toFixed(1)}/10\n`;
-        message += `• Emotional Exhaustion: ${burnoutRisk.components.mbi.emotionalExhaustion.toFixed(1)}/10\n`;
-        message += `• Depersonalization: ${burnoutRisk.components.mbi.depersonalization.toFixed(1)}/10\n`;
-        message += `• Personal Achievement: ${burnoutRisk.components.mbi.personalAccomplishment.toFixed(1)}/10\n`;
-      } else {
-        message += '• No MBI assessment completed yet\n';
-        message += '• Complete an MBI assessment to get detailed burnout analysis\n';
-      }
-      message += '\n';
-      
-      // Micro Assessments Component (30%)
-      message += 'Micro Assessments (30% weight)\n';
-      if (burnoutRisk.components.microAssessments.score > 0) {
-        message += `• Score: ${burnoutRisk.components.microAssessments.score.toFixed(1)}/10\n`;
-        message += `• Average Stress Level: ${burnoutRisk.components.microAssessments.averageStress.toFixed(1)}/5\n`;
-        message += `• Average Fatigue Level: ${burnoutRisk.components.microAssessments.averageFatigue.toFixed(1)}/5\n`;
-        message += `• Average Work Satisfaction: ${burnoutRisk.components.microAssessments.averageSatisfaction.toFixed(1)}/5\n`;
-      } else {
-        message += '• No micro assessments completed yet\n';
-        message += '• Take quick daily assessments to track wellness patterns\n';
-      }
-      message += '\n';
-      
-      // Mood Component (20%)
-      message += 'Mood Tracking (20% weight)\n';
-      if (burnoutRisk.components.moodEntries.score > 0) {
-        message += `• Score: ${burnoutRisk.components.moodEntries.score.toFixed(1)}/10\n`;
-        message += `• Average Mood: ${burnoutRisk.components.moodEntries.averageMood.toFixed(1)}/6\n`;
-        message += `• Recent Trend: ${burnoutRisk.components.moodEntries.recentTrend}\n`;
-      } else {
-        message += '• No mood entries recorded yet\n';
-        message += '• Track your daily mood to identify patterns\n';
-      }
-      message += '\n';
-      
-      // Understanding Your Score
-      message += 'UNDERSTANDING YOUR SCORE\n';
-      message += '• 0-3.5: Low risk - Keep up the good work!\n';
-      message += '• 3.6-6.5: Medium risk - Consider implementing wellness strategies\n';
-      message += '• 6.6-10: High risk - Prioritize self-care and consider professional support\n';
-
-      // Recommendations
-      if (burnoutRisk.recommendations.length > 0) {
-        message += '\nPERSONALIZED RECOMMENDATIONS\n\n';
-        burnoutRisk.recommendations.forEach((rec, index) => {
-          message += `${index + 1}. ${rec}\n`;
-        });
-      }
-
-      Alert.alert('Detailed Risk Analysis', message, [{ text: 'OK', style: 'default' }]);
-    };
+    const isAnalysisReady = burnoutRisk.riskLevel !== 'No Data';
 
     return (
-      <TouchableOpacity style={styles.riskCard} onPress={showDetailedBreakdown}>
+      <View style={styles.riskCard}>
         {/* Simple Header */}
         <View style={styles.riskHeader}>
           <View style={styles.riskTitleContainer}>
@@ -466,14 +487,35 @@ export default function ProfileScreen({ navigation }: any) {
           </View>
         )}
 
-        {/* Simple Call to Action */}
-        <Text style={styles.tapHint}>
-          {burnoutRisk.riskLevel === 'No Data' 
-            ? 'Tap to learn how to get started' 
-            : 'Tap for detailed breakdown and recommendations'
-          }
-        </Text>
-      </TouchableOpacity>
+        {/* Analysis Dropdown */}
+        <TouchableOpacity 
+          style={styles.analysisDropdown}
+          onPress={() => setIsRiskAnalysisExpanded(!isRiskAnalysisExpanded)}
+        >
+          <View style={styles.dropdownHeader}>
+            <View style={styles.dropdownLeft}>
+              <Ionicons name="analytics" size={16} color={colors.primary} />
+              <Text style={styles.dropdownTitle}>
+                {isAnalysisReady ? 'Detailed Analysis' : 'How to Get Started'}
+              </Text>
+            </View>
+            <Ionicons 
+              name={isRiskAnalysisExpanded ? 'chevron-up' : 'chevron-down'} 
+              size={16} 
+              color={colors.textSecondary} 
+            />
+          </View>
+        </TouchableOpacity>
+        
+        {/* Analysis Content */}
+        {isRiskAnalysisExpanded && (
+          <View style={styles.analysisContainer}>
+            <MarkdownText style={styles.analysisText}>
+              {generateBurnoutAnalysisText()}
+            </MarkdownText>
+          </View>
+        )}
+      </View>
     );
   };
 
@@ -884,12 +926,6 @@ const styles = StyleSheet.create({
   progressFill: {
     height: '100%',
     borderRadius: 3,
-  },
-  tapHint: {
-    fontSize: 10,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    fontStyle: 'italic',
   },
   // Analysis Dropdown Styles (same as CarelyJournalScreen)
   analysisDropdown: {
