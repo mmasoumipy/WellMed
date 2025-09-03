@@ -14,7 +14,7 @@ import { colors } from '../constants/colors';
 import WellnessStreakCard from '../components/WellnessStreakCard';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { calculateBurnoutRisk, getMBIDimensionInterpretation } from '../utils/burnoutRisk';
+import { calculateWeightedBurnoutRisk, WeightedBurnoutRisk } from '../utils/burnoutRisk';
 import HealthDataDisplay from '../components/HealthDataDisplay';
 import api from '../api/api';
 
@@ -38,20 +38,6 @@ interface UserStats {
   lastActivityDate?: string;
 }
 
-interface BurnoutRisk {
-  combinedScore: string; 
-  riskLevel: string;
-  trend?: 'improving' | 'worsening' | 'stable';
-  breakdown?: {
-    emotionalExhaustion: number;
-    depersonalization: number;
-    personalAccomplishment: number;
-    mbiScore: number;
-  };
-  recommendations?: string[];
-  lastAssessmentDate?: string;
-}
-
 const moodScale: Record<string, number> = {
   Excellent: 6,
   Good: 5,
@@ -64,7 +50,7 @@ const moodScale: Record<string, number> = {
 export default function ProfileScreen({ navigation }: any) {
   const [email, setEmail] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
-  const [burnoutRisk, setBurnoutRisk] = useState<BurnoutRisk | null>(null);
+  const [burnoutRisk, setBurnoutRisk] = useState<WeightedBurnoutRisk | null>(null);
   const [historyData, setHistoryData] = useState<HistoryData[]>([]);
   const [userStats, setUserStats] = useState<UserStats>({
     currentStreak: 0,
@@ -105,66 +91,54 @@ export default function ProfileScreen({ navigation }: any) {
       const userId = await AsyncStorage.getItem('userId');
       if (!userId) return;
 
-      // Get latest MBI assessments to calculate burnout risk and trend
-      const mbiResponse = await api.get(`/mbi/user/${userId}`);
+      // Get data from all three sources
+      const [mbiResponse, microResponse, moodResponse] = await Promise.all([
+        api.get(`/mbi/user/${userId}`).catch(() => ({ data: [] })),
+        api.get(`/micro/user/${userId}`).catch(() => ({ data: [] })),
+        api.get(`/moods/user/${userId}`).catch(() => ({ data: [] })),
+      ]);
+
       const mbiAssessments = mbiResponse.data;
+      const microAssessments = microResponse.data;
+      const moodEntries = moodResponse.data;
 
-      if (mbiAssessments.length === 0) {
-        setBurnoutRisk({
-          combinedScore: '0.0',
-          riskLevel: 'No Data',
-          trend: 'stable'
-        });
-        return;
-      }
+      // Prepare data for weighted calculation
+      const latestMBI = mbiAssessments.length > 0 ? {
+        EE: mbiAssessments[0].emotional_exhaustion,
+        DP: mbiAssessments[0].depersonalization,
+        PA: mbiAssessments[0].personal_accomplishment,
+        submitted_at: mbiAssessments[0].submitted_at,
+      } : undefined;
 
-      const latest = mbiAssessments[0];
-      const previous = mbiAssessments[1];
+      const recentMicro = microAssessments.slice(-5); // Last 5 micro assessments
+      const recentMoods = moodEntries.slice(-5); // Last 5 mood entries
 
-      // Calculate current burnout risk based only on MBI data
-      const currentRisk = calculateBurnoutRisk({
-        mbiAssessment: {
-          EE: latest.emotional_exhaustion,
-          DP: latest.depersonalization,
-          PA: latest.personal_accomplishment,
-        },
+      // Calculate weighted risk
+      const weightedRisk = calculateWeightedBurnoutRisk({
+        mbiAssessment: latestMBI,
+        microAssessments: recentMicro,
+        moodEntries: recentMoods,
       });
 
-      // Calculate trend if we have previous data
-      let trend: 'improving' | 'worsening' | 'stable' = 'stable';
-      if (previous) {
-        const previousRisk = calculateBurnoutRisk({
-          mbiAssessment: {
-            EE: previous.emotional_exhaustion,
-            DP: previous.depersonalization,
-            PA: previous.personal_accomplishment,
-          },
-        });
-
-        const currentScore = parseFloat(currentRisk.combinedScore);
-        const previousScore = parseFloat(previousRisk.combinedScore);
-        
-        if (currentScore < previousScore - 0.5) {
-          trend = 'improving';
-        } else if (currentScore > previousScore + 0.5) {
-          trend = 'worsening';
-        }
-      }
-
-      setBurnoutRisk({ 
-        combinedScore: currentRisk.combinedScore,
-        riskLevel: currentRisk.riskLevel,
-        breakdown: currentRisk.breakdown,
-        recommendations: currentRisk.recommendations,
-        trend,
-        lastAssessmentDate: latest.submitted_at
-      });
+      setBurnoutRisk(weightedRisk);
     } catch (error) {
       console.error('Error loading burnout risk:', error);
       setBurnoutRisk({
         combinedScore: '0.0',
-        riskLevel: 'Error',
-        trend: 'stable'
+        riskLevel: 'No Data',
+        breakdown: {
+          mbiContribution: 0,
+          microContribution: 0,
+          moodContribution: 0,
+          totalScore: 0,
+        },
+        components: {
+          mbi: { score: 0, weight: 0.5, emotionalExhaustion: 0, depersonalization: 0, personalAccomplishment: 0 },
+          microAssessments: { score: 0, weight: 0.3, averageStress: 0, averageFatigue: 0, averageSatisfaction: 0 },
+          moodEntries: { score: 0, weight: 0.2, averageMood: 0, recentTrend: 'stable' },
+        },
+        recommendations: [],
+        lastAssessmentDates: {},
       });
     }
   };
@@ -353,95 +327,152 @@ export default function ProfileScreen({ navigation }: any) {
         case 'medium': return colors.warning;
         case 'high': return colors.error;
         case 'no data': return colors.textSecondary;
-        case 'error': return colors.error;
-        default: return colors.textSecondary;
-      }
-    };
-
-    const getTrendIcon = () => {
-      switch (burnoutRisk.trend) {
-        case 'improving': return 'trending-down';
-        case 'worsening': return 'trending-up';
-        default: return 'remove';
-      }
-    };
-
-    const getTrendColor = () => {
-      switch (burnoutRisk.trend) {
-        case 'improving': return colors.success;
-        case 'worsening': return colors.error;
         default: return colors.textSecondary;
       }
     };
 
     const showDetailedBreakdown = () => {
-      if (!burnoutRisk.breakdown) return;
+      if (burnoutRisk.riskLevel === 'No Data') {
+        Alert.alert(
+          'Burnout Risk Assessment',
+          'Complete these assessments to get your personalized burnout risk analysis:\n\n' +
+          '• MBI Assessment (50% weight) - Comprehensive burnout inventory\n' +
+          '• Micro Assessments (30% weight) - Quick daily wellness checks\n' +
+          '• Mood Tracking (20% weight) - Daily mood monitoring\n\n' +
+          'Why These Weights?\n' +
+          '- MBI is weighted highest because it\'s the gold standard for measuring burnout\n' +
+          '- Micro assessments provide ongoing insight into daily stress patterns\n' +
+          '- Mood tracking offers valuable context for overall wellbeing trends\n\n' +
+          'Tap the Quick Actions below to get started with your first assessment.',
+          [{ text: 'OK', style: 'default' }]
+        );
+        return;
+      }
 
-      const { breakdown } = burnoutRisk;
-      let message = 'MBI Dimension Breakdown:\n\n';
-      message += `Emotional Exhaustion: ${breakdown.emotionalExhaustion}/10\n`;
-      message += `Depersonalization: ${breakdown.depersonalization}/10\n`;
-      message += `Personal Accomplishment: ${breakdown.personalAccomplishment}/10\n\n`;
+      let message = `Overall Risk Score: ${burnoutRisk.combinedScore}/10\n`;
+      message += `Risk Level: ${burnoutRisk.riskLevel}\n\n`;
       
-      if (burnoutRisk.recommendations && burnoutRisk.recommendations.length > 0) {
-        message += 'Recommendations:\n';
+      message += 'COMPONENT BREAKDOWN\n\n';
+      
+      // MBI Component (50%)
+      message += 'MBI Assessment (50% weight)\n';
+      if (burnoutRisk.components.mbi.score > 0) {
+        message += `• Score: ${burnoutRisk.components.mbi.score.toFixed(1)}/10\n`;
+        message += `• Emotional Exhaustion: ${burnoutRisk.components.mbi.emotionalExhaustion.toFixed(1)}/10\n`;
+        message += `• Depersonalization: ${burnoutRisk.components.mbi.depersonalization.toFixed(1)}/10\n`;
+        message += `• Personal Achievement: ${burnoutRisk.components.mbi.personalAccomplishment.toFixed(1)}/10\n`;
+      } else {
+        message += '• No MBI assessment completed yet\n';
+        message += '• Complete an MBI assessment to get detailed burnout analysis\n';
+      }
+      message += '\n';
+      
+      // Micro Assessments Component (30%)
+      message += 'Micro Assessments (30% weight)\n';
+      if (burnoutRisk.components.microAssessments.score > 0) {
+        message += `• Score: ${burnoutRisk.components.microAssessments.score.toFixed(1)}/10\n`;
+        message += `• Average Stress Level: ${burnoutRisk.components.microAssessments.averageStress.toFixed(1)}/5\n`;
+        message += `• Average Fatigue Level: ${burnoutRisk.components.microAssessments.averageFatigue.toFixed(1)}/5\n`;
+        message += `• Average Work Satisfaction: ${burnoutRisk.components.microAssessments.averageSatisfaction.toFixed(1)}/5\n`;
+      } else {
+        message += '• No micro assessments completed yet\n';
+        message += '• Take quick daily assessments to track wellness patterns\n';
+      }
+      message += '\n';
+      
+      // Mood Component (20%)
+      message += 'Mood Tracking (20% weight)\n';
+      if (burnoutRisk.components.moodEntries.score > 0) {
+        message += `• Score: ${burnoutRisk.components.moodEntries.score.toFixed(1)}/10\n`;
+        message += `• Average Mood: ${burnoutRisk.components.moodEntries.averageMood.toFixed(1)}/6\n`;
+        message += `• Recent Trend: ${burnoutRisk.components.moodEntries.recentTrend}\n`;
+      } else {
+        message += '• No mood entries recorded yet\n';
+        message += '• Track your daily mood to identify patterns\n';
+      }
+      message += '\n';
+      
+      // Understanding Your Score
+      message += 'UNDERSTANDING YOUR SCORE\n';
+      message += '• 0-3.5: Low risk - Keep up the good work!\n';
+      message += '• 3.6-6.5: Medium risk - Consider implementing wellness strategies\n';
+      message += '• 6.6-10: High risk - Prioritize self-care and consider professional support\n';
+
+      // Recommendations
+      if (burnoutRisk.recommendations.length > 0) {
+        message += '\nPERSONALIZED RECOMMENDATIONS\n\n';
         burnoutRisk.recommendations.forEach((rec, index) => {
           message += `${index + 1}. ${rec}\n`;
         });
       }
 
-      Alert.alert('Detailed MBI Analysis', message);
+      Alert.alert('Detailed Risk Analysis', message, [{ text: 'OK', style: 'default' }]);
     };
 
     return (
       <TouchableOpacity style={styles.riskCard} onPress={showDetailedBreakdown}>
+        {/* Simple Header */}
         <View style={styles.riskHeader}>
           <View style={styles.riskTitleContainer}>
-            <Ionicons name="shield-checkmark" size={20} color={getRiskColor(burnoutRisk.riskLevel)} />
-            <Text style={styles.riskTitle}>MBI Burnout Risk</Text>
+            <Ionicons name="analytics-outline" size={20} color={getRiskColor(burnoutRisk.riskLevel)} />
+            <Text style={styles.riskTitle}>Burnout Risk Assessment</Text>
           </View>
-          {burnoutRisk.trend && (
-            <View style={styles.trendContainer}>
-              <Ionicons 
-                name={getTrendIcon()} 
-                size={16} 
-                color={getTrendColor()} 
-              />
-              <Text style={[styles.trendText, { color: getTrendColor() }]}>
-                {burnoutRisk.trend}
+        </View>
+
+        {/* Main Content - Simple and Clean */}
+        <View style={styles.riskMainContent}>
+          <View style={styles.riskScoreDisplay}>
+            <Text style={[styles.riskScoreNumber, { color: getRiskColor(burnoutRisk.riskLevel) }]}>
+              {burnoutRisk.combinedScore}
+            </Text>
+            <Text style={styles.riskScoreLabel}>/ 10</Text>
+          </View>
+          
+          <View style={styles.riskLevelContainer}>
+            <View style={[styles.riskLevelBadge, { backgroundColor: getRiskColor(burnoutRisk.riskLevel) + '20' }]}>
+              <Text style={[styles.riskLevel, { color: getRiskColor(burnoutRisk.riskLevel) }]}>
+                {burnoutRisk.riskLevel} Risk
               </Text>
             </View>
-          )}
+            
+            {burnoutRisk.riskLevel !== 'No Data' && (
+              <Text style={styles.riskDescription}>
+                Based on MBI (50%), micro-assessments (30%), and mood data (20%)
+              </Text>
+            )}
+            
+            {burnoutRisk.riskLevel === 'No Data' && (
+              <Text style={styles.riskDescription}>
+                Complete assessments to get your personalized risk analysis
+              </Text>
+            )}
+          </View>
         </View>
-        <View style={styles.riskContent}>
-          <Text style={[styles.riskLevel, { color: getRiskColor(burnoutRisk.riskLevel) }]}>
-            {burnoutRisk.riskLevel}
-          </Text>
-          {burnoutRisk.riskLevel !== 'No Data' && burnoutRisk.riskLevel !== 'Error' && (
-            <Text style={styles.riskScore}>MBI Score: {burnoutRisk.combinedScore}/10</Text>
-          )}
-          {burnoutRisk.riskLevel === 'No Data' && (
-            <Text style={styles.riskScore}>Complete an MBI assessment to see your risk</Text>
-          )}
-          {burnoutRisk.riskLevel === 'Error' && (
-            <Text style={styles.riskScore}>Unable to load MBI data</Text>
-          )}
-          {burnoutRisk.lastAssessmentDate && (
-            <Text style={styles.lastAssessment}>
-              Last MBI: {new Date(burnoutRisk.lastAssessmentDate).toLocaleDateString()}
-            </Text>
-          )}
-        </View>
-        {burnoutRisk.breakdown && (
-          <View style={styles.dimensionPreview}>
-            <Text style={styles.dimensionText}>
-              EE: {burnoutRisk.breakdown.emotionalExhaustion.toFixed(1)} • 
-              DP: {burnoutRisk.breakdown.depersonalization.toFixed(1)} • 
-              PA: {burnoutRisk.breakdown.personalAccomplishment.toFixed(1)}
-            </Text>
+
+        {/* Progress Bar - Only show if we have data */}
+        {burnoutRisk.riskLevel !== 'No Data' && (
+          <View style={styles.progressContainer}>
+            <View style={styles.progressBar}>
+              <View 
+                style={[
+                  styles.progressFill, 
+                  { 
+                    width: `${Math.min(parseFloat(burnoutRisk.combinedScore) * 10, 100)}%`,
+                    backgroundColor: getRiskColor(burnoutRisk.riskLevel),
+                  }
+                ]} 
+              />
+            </View>
           </View>
         )}
-        <Text style={styles.tapHint}>Tap for detailed breakdown</Text>
+
+        {/* Simple Call to Action */}
+        <Text style={styles.tapHint}>
+          {burnoutRisk.riskLevel === 'No Data' 
+            ? 'Tap to learn how to get started' 
+            : 'Tap for detailed breakdown and recommendations'
+          }
+        </Text>
       </TouchableOpacity>
     );
   };
@@ -675,7 +706,6 @@ export default function ProfileScreen({ navigation }: any) {
         {renderStatsOverview()}
       </View>
 
-
       {/* Activity History */}
       {renderActivityHistory()}
 
@@ -789,11 +819,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   riskTitleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   riskTitle: {
     fontSize: 16,
@@ -801,52 +832,101 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginLeft: 8,
   },
-  trendContainer: {
+  // New simplified risk card styles
+  riskMainContent: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  riskScoreDisplay: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'baseline',
+    marginBottom: 12,
   },
-  trendText: {
-    fontSize: 12,
-    fontWeight: '500',
+  riskScoreNumber: {
+    fontSize: 48,
+    fontWeight: 'bold',
+  },
+  riskScoreLabel: {
+    fontSize: 24,
+    color: colors.textSecondary,
     marginLeft: 4,
-    textTransform: 'capitalize',
   },
-  riskContent: {
+  riskLevelContainer: {
     alignItems: 'center',
+    marginBottom: 16,
+  },
+  riskLevelBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginBottom: 8,
   },
   riskLevel: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  riskScore: {
     fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: 4,
+    fontWeight: '600',
   },
-  lastAssessment: {
+  riskDescription: {
     fontSize: 12,
     color: colors.textSecondary,
     fontStyle: 'italic',
+    textAlign: 'center',
+    lineHeight: 16,
   },
-  dimensionPreview: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.divider,
-    alignItems: 'center',
+  progressContainer: {
+    marginBottom: 12,
   },
-  dimensionText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    fontFamily: 'monospace',
+  progressBar: {
+    height: 6,
+    backgroundColor: colors.divider,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 3,
   },
   tapHint: {
     fontSize: 10,
     color: colors.textSecondary,
     textAlign: 'center',
-    marginTop: 8,
     fontStyle: 'italic',
+  },
+  // Analysis Dropdown Styles (same as CarelyJournalScreen)
+  analysisDropdown: {
+    marginTop: 8,
+  },
+  dropdownHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: colors.primary + '10',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.primary + '30',
+  },
+  dropdownLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  dropdownTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
+    marginLeft: 8,
+  },
+  analysisContainer: {
+    marginTop: 12,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
+  },
+  analysisText: {
+    fontSize: 16,
+    color: colors.textPrimary,
+    lineHeight: 24,
   },
   statsRow: {
     flexDirection: 'row',
